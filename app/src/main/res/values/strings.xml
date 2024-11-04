@@ -1,8 +1,10 @@
 <resources>
 
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar"></style>
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+    </style>
 
     <string name="app_name">ConnectFourProject</string>
     <string name="Button1_text">Play Game</string>
     <string name="Button2_text">Settings</string>
-</resources>
+
+    </resources>
