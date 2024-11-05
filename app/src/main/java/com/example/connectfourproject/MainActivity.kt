@@ -3,12 +3,13 @@ package com.example.connectfourproject
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import android.graphics.Paint
+import android.graphics.Color
 import com.example.connectfourproject.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
     lateinit var binding : ActivityMainBinding
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -16,16 +17,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.singleplayerBtn.setOnClickListener {
-            createOfflineGame()
+            createSinglePlayer()
         }
     }
 
-    fun createOfflineGame(){
-        startGame()
-    }
-
-    fun startGame(){
-        startActivity(Intent(this,GameActivity::class.java))
+    fun createSinglePlayer(){
+        val intent = Intent(this, GameActivity::class.java)
+        startActivity(intent)
     }
 
 }
