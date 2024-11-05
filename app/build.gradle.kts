@@ -36,11 +36,17 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        compose = true
     }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.3"
+    }
+
 }
 
 dependencies {
 
+    implementation("androidx.compose.material:material-icons-extended:1.4.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

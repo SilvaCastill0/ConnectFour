@@ -5,6 +5,8 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import android.graphics.Paint
 import android.graphics.Color
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TextField
 import com.example.connectfourproject.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
