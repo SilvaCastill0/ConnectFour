@@ -9,12 +9,15 @@
     tools:context=".GameActivity">
 
     <androidx.appcompat.widget.ActionMenuView
-        android:id="@+id/toobar"
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
+        android:layout_height="50dp"
+        android:layout_gravity="center"
         android:background="?attr/colorPrimary"
         app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
-        app:title="My App Title" />
+        app:title="My App Title" >
+
+    </androidx.appcompat.widget.ActionMenuView>
 
     <TextView
         android:layout_width="wrap_content"
