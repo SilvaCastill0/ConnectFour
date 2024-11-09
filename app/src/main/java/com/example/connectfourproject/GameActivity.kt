@@ -62,7 +62,7 @@ class GameActivity : ComponentActivity() {
 @Composable
 fun GameScreen() {
     Scaffold(
-        topBar = { TopBarBackButton() }
+        topBar = { TopBarBackButton() },
     ) {
         GameGrid()
     }
@@ -75,7 +75,7 @@ fun TopBarBackButton() {
 
     androidx.compose.material3.TopAppBar(
         title = {
-            Text("Connect Four")
+            Text(text = "Connect Four")
         },
         navigationIcon = {
             IconButton(onClick = {
@@ -102,13 +102,6 @@ fun GameGrid() {
                 LayoutInflater.from(context).inflate(R.layout.activity_game, null)
             },
             modifier = Modifier.fillMaxWidth()
-        )
-
-        Text(text =
-            "Connect Four",
-            color = Color.White,
-            fontSize = 45.sp,
-            modifier = Modifier.align(Alignment.TopCenter)
         )
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
