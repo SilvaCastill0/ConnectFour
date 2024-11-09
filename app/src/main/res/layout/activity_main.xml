@@ -4,42 +4,6 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
-    android:layout_margin="16dp"
-    android:orientation="vertical"
+    android:background="@drawable/backmain"
     tools:context=".MainActivity">
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Connect Four"
-        android:textColor="@color/black"
-        android:translationY="-50dp"
-        android:textSize="28sp"
-        android:layout_margin="8dp"
-        android:padding="8dp">
-    </TextView>
-
-    <Button
-        android:id="@+id/singleplayerBtn"
-        android:layout_width="250dp"
-        android:layout_height="wrap_content"
-        android:translationY="-25dp"
-        android:background="@drawable/rounded_button"
-        android:text="Single Player"
-        android:layout_margin="16dp"
-        android:padding="8dp">
-    </Button>
-
-    <Button
-        android:id="@+id/multiplayer_btn"
-        android:layout_width="250dp"
-        android:layout_height="wrap_content"
-        android:background="@drawable/rounded_button"
-        android:text="Multi Player"
-        android:layout_margin="16dp"
-        android:padding="8dp">
-    </Button>
-
-
 </LinearLayout>
