@@ -28,7 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 
 
 class MainActivity : ComponentActivity() {
@@ -54,11 +58,11 @@ fun MainMenu(
     var playerName = remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxWidth()) {
-        AndroidView(
-            factory = { context ->
-                LayoutInflater.from(context).inflate(R.layout.activity_main, null)
-            },
-            modifier = Modifier.fillMaxWidth()
+        Image(
+            painter = painterResource(id = R.drawable.backmain),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
         )
 
     Column(

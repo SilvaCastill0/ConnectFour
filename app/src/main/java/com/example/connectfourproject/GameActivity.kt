@@ -1,5 +1,6 @@
 package com.example.connectfourproject
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.Context
@@ -7,6 +8,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,8 +44,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.ContextCompat.startActivity
 
@@ -59,6 +66,7 @@ class GameActivity : ComponentActivity() {
     }
 }
 
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun GameScreen() {
     Scaffold(
@@ -94,27 +102,32 @@ fun TopBarBackButton() {
 
 @Composable
 fun GameGrid() {
-    val buttonsLabels = List(42) { false }
+    val gameBoard = remember { mutableStateOf(Array(6) { Array(7) { 0 } }) }
+    val currentPlayer = remember { mutableStateOf(1) }
 
     Box(modifier = Modifier.fillMaxWidth()) {
-        AndroidView(
-            factory = { context ->
-                LayoutInflater.from(context).inflate(R.layout.activity_game, null)
-            },
-            modifier = Modifier.fillMaxWidth()
+        Image(
+            painter = painterResource(id = R.drawable.backmain),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
         )
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationY = 500f },
+                .graphicsLayer { translationY = 700f },
             contentPadding = PaddingValues(8.dp)
         ) {
-            items(buttonsLabels.size) { index ->
+            items(gameBoard.value.flatten().size) { index ->
                 val row = index / 7
                 val col = index % 7
                 Button(
-                    onClick = {},
+                    onClick = {
+                        if(dropPiece(gameBoard, col, currentPlayer)) {
+                            currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
+                        }
+                    },
                     modifier = Modifier
                         .padding(4.dp)
                         .size(50.dp)
@@ -124,16 +137,35 @@ fun GameGrid() {
                     Box(
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .background(Color.Red, shape = CircleShape)
-                        )
+                        when (gameBoard.value[row][col]) {
+                            1 -> Box(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .background(Color.Red, shape = CircleShape)
+                            )
+                            2 -> Box(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .background(Color.Yellow, shape = CircleShape)
+                            )
+                        }
                     }
                 }
             }
         }
     }
+}
+
+fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer: MutableState<Int>): Boolean {
+    for (row in gameBoard.value.size - 1 downTo 0) {
+        if (gameBoard.value[row][col] == 0) {
+            val updatedBoard = gameBoard.value.map { it.copyOf() }.toTypedArray()
+            updatedBoard[row][col] = currentPlayer.value
+            gameBoard.value = updatedBoard
+            return true
+        }
+    }
+    return false
 }
 
 
