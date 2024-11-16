@@ -2,7 +2,6 @@ package com.example.connectfourproject
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.LayoutInflater
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
@@ -31,7 +29,6 @@ import android.content.SharedPreferences
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 
 
@@ -117,6 +114,7 @@ fun savePlayerName(context: Context, name: String) {
     editor.putStringSet("playerNames", existingPlayers)
     editor.apply()
 }
+
 // Retrieves player names and send it to different activities
 fun getPlayerNames(context: Context): Set<String> {
     val sharedPreferences: SharedPreferences =
@@ -134,3 +132,5 @@ fun PreviewMainMenu() {
         onPlayerAdded = { println("Player added: $it") }
     )
 }
+
+

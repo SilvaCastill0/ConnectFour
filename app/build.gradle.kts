@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -11,7 +12,7 @@ android {
     defaultConfig {
         applicationId = "com.example.connectfourproject"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -46,15 +47,10 @@ android {
 
 dependencies {
 
-    implementation(platform("androidx.compose:compose-bom:2024.04.01"))
-    implementation("androidx.core:core-ktx:1.9.0")
-    implementation("androidx.compose.material3:material3:1.1.0")
-    implementation("androidx.navigation:navigation-compose:2.8.3")
-    implementation("io.coil-kt:coil-compose:2.4.0")
-    implementation("androidx.compose.ui:ui-tooling")
+
+    implementation(platform(libs.firebase.bom))
+
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material:material-icons-extended:1.4.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -66,6 +62,8 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.material)
     implementation(libs.androidx.activity)
+    implementation(libs.firebase.firestore)
+    implementation(libs.androidx.appcompat)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -73,8 +71,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    debugImplementation("androidx.compose.ui:ui-tooling:1.3.3")
-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.3.3")
-
-    implementation("androidx.compose.material3:material3-window-size-class:1.3.1")
 }

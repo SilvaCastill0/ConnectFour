@@ -3,25 +3,19 @@ package com.example.connectfourproject
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
-import android.content.Context
 import android.os.Bundle
-import android.view.LayoutInflater
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.runtime.Composable
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Button
 import androidx.compose.ui.Alignment
@@ -29,30 +23,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.Image
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.core.content.ContextCompat.startActivity
 
 
 class GameActivity : ComponentActivity() {
@@ -76,6 +65,7 @@ fun GameScreen() {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopBarBackButton() {
@@ -88,7 +78,7 @@ fun TopBarBackButton() {
         navigationIcon = {
             IconButton(onClick = {
                 val intent = Intent(context, MainActivity::class.java)
-                context.startActivity(intent)
+                (context as Activity).startActivity(intent)
             }) {
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
@@ -104,38 +94,53 @@ fun TopBarBackButton() {
 fun GameGrid() {
     val gameBoard = remember { mutableStateOf(Array(6) { Array(7) { 0 } }) }
     val currentPlayer = remember { mutableStateOf(1) }
+    val winDetected = remember { mutableStateOf(0) }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
+
+    Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.backmain),
             contentDescription = null,
-            contentScale = ContentScale.FillBounds,
+            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationY = 700f },
-            contentPadding = PaddingValues(8.dp)
+                .graphicsLayer { translationY = 700f }
+                .padding(vertical = 16.dp, horizontal = 8.dp),
+            contentPadding = PaddingValues(4.dp)
         ) {
             items(gameBoard.value.flatten().size) { index ->
                 val row = index / 7
                 val col = index % 7
-                Button(
-                    onClick = {
-                        if(dropPiece(gameBoard, col, currentPlayer)) {
-                            currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
-                        }
-                    },
+
+                Box(
                     modifier = Modifier
+                        .size(60.dp)
                         .padding(4.dp)
-                        .size(50.dp)
                         .clip(CircleShape)
-                        .background(Color.Gray)
+                        .background(
+                            if (gameBoard.value[row][col] == 1) Color.Red
+                            else if (gameBoard.value[row][col] == 2) Color.Yellow
+                            else Color.Gray
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center
+                    Button(
+                        onClick = {
+                            if (dropPiece(gameBoard, col, currentPlayer)) {
+                                if (WinCheck(gameBoard, row, col, currentPlayer)) {
+                                    winDetected.value = 1
+                                } else {
+                                    currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         when (gameBoard.value[row][col]) {
                             1 -> Box(
@@ -143,6 +148,7 @@ fun GameGrid() {
                                     .size(50.dp)
                                     .background(Color.Red, shape = CircleShape)
                             )
+
                             2 -> Box(
                                 modifier = Modifier
                                     .size(50.dp)
@@ -153,8 +159,60 @@ fun GameGrid() {
                 }
             }
         }
+        if (winDetected.value == 1) {
+            ShowWinMessage(currentPlayer)
+            winDetected.value = 0
+        }
     }
 }
+
+@Composable
+fun ShowWinMessage(currentPlayer: MutableState<Int>) {
+    val context = LocalContext.current
+    LaunchedEffect(currentPlayer.value) {
+        Toast.makeText(context, "Player ${currentPlayer.value} wins!", Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Composable
+fun DrawWinMessage() {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        Toast.makeText(context, "Draw!", Toast.LENGTH_SHORT).show()
+    }
+}
+
+fun CheckHor(gameBoard: MutableState<Array<Array<Int>>>, row: Int, currentPlayer: MutableState<Int>): Boolean{
+    var count = 0
+    for (col in 0 until gameBoard.value[row].size) {
+        if (gameBoard.value[row][col] == currentPlayer.value) {
+            count++
+            if (count == 4) return true
+        } else {
+            count = 0
+        }
+    }
+    return false
+}
+
+fun CheckVer(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer: MutableState<Int>): Boolean {
+    var count = 0
+    for (row in 0 until gameBoard.value.size) {
+        if (gameBoard.value[row][col] == currentPlayer.value) {
+            count++
+            if (count == 4) return true
+        } else {
+            count = 0
+        }
+    }
+    return false
+}
+
+
+fun WinCheck(gameBoard: MutableState<Array<Array<Int>>>, row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
+    return CheckHor(gameBoard, row, currentPlayer) || CheckVer(gameBoard, col, currentPlayer)
+}
+
 
 fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer: MutableState<Int>): Boolean {
     for (row in gameBoard.value.size - 1 downTo 0) {
@@ -163,11 +221,10 @@ fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlaye
             updatedBoard[row][col] = currentPlayer.value
             gameBoard.value = updatedBoard
             return true
+            }
         }
-    }
     return false
 }
-
 
 
 @Preview(showBackground = true)
@@ -175,71 +232,3 @@ fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlaye
 fun PreviewGameGrid() {
     GameScreen()
 }
-
-
-/*
-var isPlayer1Turn = true
-
-class GameActivity : AppCompatActivity() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_game)
-
-        getSupportActionBar()?.setDisplayHomeAsUpEnabled(true);
-
-        setupGameGrid()
-
-    }
-
-    fun setupGameGrid() {
-        val gamePieces = Array(6) { row ->
-            Array(7) { col ->
-                val pieceId = resources.getIdentifier(
-                    "piece_${row}_${col}", "id",
-                    packageName
-                )
-                val gamePiece = findViewById<GamePieceView>(pieceId)
-
-                gamePiece?.let {
-                    it.setOnClickListener { view ->
-                        onGamePieceClicked(view as GamePieceView)
-                    }
-                }
-                gamePiece
-            }
-        }
-    }
-
-    fun onGamePieceClicked(gamePiece: GamePieceView) {
-
-        val col = getColumnFromId(gamePiece.id)
-        val rowCount = 6
-
-        for(row in rowCount - 1 downTo 0) {
-            val pieceId = resources.getIdentifier(
-                "piece_${row}_${col}", "id",
-                packageName
-            )
-            val gamePiece = findViewById<GamePieceView>(pieceId)
-
-            if (gamePiece != null && gamePiece.paint.color == Color.GRAY) {
-                if (isPlayer1Turn) {
-                    gamePiece.setPlayer1()
-                } else {
-                    gamePiece.setPlayer2()
-                }
-                isPlayer1Turn = !isPlayer1Turn
-                break
-            }
-        }
-    }
-
-    fun getColumnFromId(pieceId: Int): Int {
-        val resourceName = resources.getResourceName(pieceId)
-        val parts = resourceName.split("_")
-        return parts[2].toInt()
-
-    }
-}
- */
