@@ -208,9 +208,39 @@ fun CheckVer(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer
     return false
 }
 
+fun CheckDiag(gameBoard: MutableState<Array<Array<Int>>>,row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
+    var count = 0
+
+    // Check diagonal from top-left to bottom-right
+    for(i in -3..3) {
+        if (row + i in gameBoard.value.indices && col + i in gameBoard.value[row].indices) {
+            if (gameBoard.value[row + i][col + i] == currentPlayer.value) {
+                count++
+                if (count == 4) return true
+            } else {
+                count = 0
+            }
+        }
+    }
+
+    count = 0
+    // Check diagonal from top-right to bottom-left
+    for(i in -3..3) {
+        if (row + i in gameBoard.value.indices && col - i in gameBoard.value[row].indices) {
+            if (gameBoard.value[row + i][col - i] == currentPlayer.value) {
+                count++
+                if (count == 4) return true
+            } else {
+                count = 0
+            }
+        }
+    }
+    return false
+}
+
 
 fun WinCheck(gameBoard: MutableState<Array<Array<Int>>>, row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
-    return CheckHor(gameBoard, row, currentPlayer) || CheckVer(gameBoard, col, currentPlayer)
+    return CheckHor(gameBoard, row, currentPlayer) || CheckVer(gameBoard, col, currentPlayer) || CheckDiag(gameBoard, row, col, currentPlayer)
 }
 
 
