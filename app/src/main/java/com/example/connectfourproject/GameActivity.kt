@@ -42,6 +42,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
 
 
 class GameActivity : ComponentActivity() {
@@ -104,70 +105,83 @@ fun GameGrid() {
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(7),
+        if (winDetected.value == 0) {
+        Text(
+            text = "Player ${currentPlayer.value}'s turn",
+            color = if (currentPlayer.value == 1) Color.Red else Color.Yellow,
+            fontSize = 24.sp,
             modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { translationY = 700f }
-                .padding(vertical = 16.dp, horizontal = 8.dp),
-            contentPadding = PaddingValues(4.dp)
-        ) {
-            items(gameBoard.value.flatten().size) { index ->
-                val row = index / 7
-                val col = index % 7
+                .align(Alignment.TopCenter)
+                .graphicsLayer { translationY = 600f }
+                .padding(top = 16.dp)
+        )
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(7),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { translationY = 700f }
+                    .padding(vertical = 16.dp, horizontal = 8.dp),
+                contentPadding = PaddingValues(4.dp)
+            ) {
+                items(gameBoard.value.flatten().size) { index ->
+                    val row = index / 7
+                    val col = index % 7
 
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .padding(4.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (gameBoard.value[row][col] == 1) Color.Red
-                            else if (gameBoard.value[row][col] == 2) Color.Yellow
-                            else Color.Gray
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Button(
-                        onClick = {
-                            if (dropPiece(gameBoard, col, currentPlayer)) {
-                                if (WinCheck(gameBoard, row, col, currentPlayer)) {
-                                    winDetected.value = 1
-                                } else {
-                                    currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                        modifier = Modifier.fillMaxSize()
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .padding(4.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (gameBoard.value[row][col] == 1) Color.Red
+                                else if (gameBoard.value[row][col] == 2) Color.Yellow
+                                else Color.Gray
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        when (gameBoard.value[row][col]) {
-                            1 -> Box(
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .background(Color.Red, shape = CircleShape)
-                            )
+                        Button(
+                            onClick = {
+                                val row = dropPiece(gameBoard, col, currentPlayer)
+                                if (row != null) {
+                                    if (WinCheck(gameBoard, row, col, currentPlayer)) {
+                                        winDetected.value = 1
+                                    } else {
+                                        currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            when (gameBoard.value[row][col]) {
+                                1 -> Box(
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .background(Color.Red, shape = CircleShape)
+                                )
 
-                            2 -> Box(
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .background(Color.Yellow, shape = CircleShape)
-                            )
+                                2 -> Box(
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .background(Color.Yellow, shape = CircleShape)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
-        if (winDetected.value == 1) {
+        else if (winDetected.value == 1) {
             ShowWinMessage(currentPlayer)
-            winDetected.value = 0
         }
     }
 }
 
 @Composable
 fun ShowWinMessage(currentPlayer: MutableState<Int>) {
+
+    Text(
+
     val context = LocalContext.current
     LaunchedEffect(currentPlayer.value) {
         Toast.makeText(context, "Player ${currentPlayer.value} wins!", Toast.LENGTH_SHORT).show()
@@ -180,80 +194,6 @@ fun DrawWinMessage() {
     LaunchedEffect(Unit) {
         Toast.makeText(context, "Draw!", Toast.LENGTH_SHORT).show()
     }
-}
-
-fun CheckHor(gameBoard: MutableState<Array<Array<Int>>>, row: Int, currentPlayer: MutableState<Int>): Boolean{
-    var count = 0
-    for (col in 0 until gameBoard.value[row].size) {
-        if (gameBoard.value[row][col] == currentPlayer.value) {
-            count++
-            if (count == 4) return true
-        } else {
-            count = 0
-        }
-    }
-    return false
-}
-
-fun CheckVer(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer: MutableState<Int>): Boolean {
-    var count = 0
-    for (row in 0 until gameBoard.value.size) {
-        if (gameBoard.value[row][col] == currentPlayer.value) {
-            count++
-            if (count == 4) return true
-        } else {
-            count = 0
-        }
-    }
-    return false
-}
-
-fun CheckDiag(gameBoard: MutableState<Array<Array<Int>>>,row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
-    var count = 0
-
-    // Check diagonal from top-left to bottom-right
-    for(i in -3..3) {
-        if (row + i in gameBoard.value.indices && col + i in gameBoard.value[row].indices) {
-            if (gameBoard.value[row + i][col + i] == currentPlayer.value) {
-                count++
-                if (count == 4) return true
-            } else {
-                count = 0
-            }
-        }
-    }
-
-    count = 0
-    // Check diagonal from top-right to bottom-left
-    for(i in -3..3) {
-        if (row + i in gameBoard.value.indices && col - i in gameBoard.value[row].indices) {
-            if (gameBoard.value[row + i][col - i] == currentPlayer.value) {
-                count++
-                if (count == 4) return true
-            } else {
-                count = 0
-            }
-        }
-    }
-    return false
-}
-
-
-fun WinCheck(gameBoard: MutableState<Array<Array<Int>>>, row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
-    return CheckHor(gameBoard, row, currentPlayer) || CheckVer(gameBoard, col, currentPlayer) || CheckDiag(gameBoard, row, col, currentPlayer)
-}
-
-
-fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer: MutableState<Int>): Boolean {
-    for (row in gameBoard.value.size - 1 downTo 0) {
-        if (gameBoard.value[row][col] == 0) {
-            val updatedBoard = gameBoard.value.map { it.copyOf() }.toTypedArray()
-            updatedBoard[row][col] = currentPlayer.value
-            gameBoard.value = updatedBoard
-            return true
-            }
-        }
-    return false
 }
 
 
