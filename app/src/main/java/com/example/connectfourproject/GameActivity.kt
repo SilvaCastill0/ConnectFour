@@ -4,18 +4,12 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Button
 import androidx.compose.ui.Alignment
@@ -27,22 +21,18 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.Image
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextAlign
+import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.FirebaseFirestore
 
 
 class GameActivity : ComponentActivity() {
@@ -145,6 +135,8 @@ fun GameGrid() {
                                 if (row != null) {
                                     if (WinCheck(gameBoard, row, col, currentPlayer)) {
                                         winDetected.value = 1
+                                    } else if(CheckDraw(gameBoard)) {
+                                        winDetected.value = 2
                                     } else {
                                         currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
                                     }
@@ -172,27 +164,53 @@ fun GameGrid() {
             }
         }
         else if (winDetected.value == 1) {
-            ShowWinMessage(currentPlayer)
+            PopUpWinner(currentPlayer, onDismissRequest = { winDetected.value = 0 })
+        }
+        else if (winDetected.value == 2) {
+            PopUpDraw(onDismissRequest = { winDetected.value = 0 })
         }
     }
 }
 
 @Composable
-fun ShowWinMessage(currentPlayer: MutableState<Int>) {
-
-    Text(
-
-    val context = LocalContext.current
-    LaunchedEffect(currentPlayer.value) {
-        Toast.makeText(context, "Player ${currentPlayer.value} wins!", Toast.LENGTH_SHORT).show()
+fun PopUpWinner(currentPlayer: MutableState<Int>, onDismissRequest: () -> Unit) {
+    Dialog(onDismissRequest = { onDismissRequest() }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = "Player ${currentPlayer.value} wins!",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .wrapContentSize(Alignment.Center),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
 @Composable
-fun DrawWinMessage() {
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        Toast.makeText(context, "Draw!", Toast.LENGTH_SHORT).show()
+fun PopUpDraw(onDismissRequest: () -> Unit) {
+    Dialog(onDismissRequest = { onDismissRequest() }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = "Draw!",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .wrapContentSize(Alignment.Center),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

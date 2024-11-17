@@ -4,43 +4,33 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.Text
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import com.google.firebase.FirebaseApp
 
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        FirebaseApp.initializeApp(this)
         setContent{
-            MainMenu (
-                onNavigateToGame = { startActivity(Intent(this, GameActivity::class.java)) },
-                onPlayerAdded = { playerName -> savePlayerName(this, playerName) }
-            )
+            MainMenu { playerName ->
+                val intent = Intent(this, LobbyActivity::class.java)
+                intent.putExtra("playerName", playerName)
+                startActivity(intent)
+            }
         }
     }
 }
@@ -48,10 +38,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainMenu(
-    onNavigateToGame: () -> Unit,
-    onPlayerAdded: (String) -> Unit
+    onNavigateToGame: (String) -> Unit,
 ) {
-
     var playerName = remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -89,8 +77,7 @@ fun MainMenu(
             Button(
                 onClick = {
                     if(playerName.value.isNotEmpty()) {
-                        onPlayerAdded(playerName.value)
-                        onNavigateToGame()
+                        onNavigateToGame(playerName.value)
                     }
                 },
                 modifier = Modifier
@@ -105,31 +92,12 @@ fun MainMenu(
 }
 
 
-fun savePlayerName(context: Context, name: String) {
-    val sharedPreferences: SharedPreferences =
-        context.getSharedPreferences("PlayerPrefs", Context.MODE_PRIVATE)
-    val editor = sharedPreferences.edit()
-    val existingPlayers = sharedPreferences.getStringSet("playerNames", mutableSetOf()) ?: mutableSetOf()
-    existingPlayers.add(name)
-    editor.putStringSet("playerNames", existingPlayers)
-    editor.apply()
-}
-
-// Retrieves player names and send it to different activities
-fun getPlayerNames(context: Context): Set<String> {
-    val sharedPreferences: SharedPreferences =
-        context.getSharedPreferences("PlayerPrefs", Context.MODE_PRIVATE)
-    return sharedPreferences.getStringSet("playerNames", mutableSetOf()) ?: mutableSetOf()
-}
-
-
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewMainMenu() {
     MainMenu (
-        onNavigateToGame = { println("Navigate to Game") },
-        onPlayerAdded = { println("Player added: $it") }
+        onNavigateToGame = { println("Navigate to Game") }
     )
 }
 

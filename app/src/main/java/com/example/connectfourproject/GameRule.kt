@@ -1,6 +1,8 @@
 package com.example.connectfourproject
 
 import androidx.compose.runtime.MutableState
+import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.FirebaseFirestore
 
 fun CheckHor(gameBoard: MutableState<Array<Array<Int>>>, row: Int, currentPlayer: MutableState<Int>): Boolean{
     var count = 0
@@ -57,6 +59,15 @@ fun CheckDiag(gameBoard: MutableState<Array<Array<Int>>>,row: Int, col: Int, cur
         }
     }
     return false
+}
+
+fun CheckDraw(gameBoard: MutableState<Array<Array<Int>>>): Boolean {
+    for (row in gameBoard.value) {
+        for (cell in row) {
+            if (cell == 0) return false
+        }
+    }
+    return true
 }
 
 

@@ -15,8 +15,13 @@
         <activity
             android:name=".GameActivity"
             android:exported="false"
+            android:parentActivityName=".LobbyActivity"
+            android:theme="@style/Theme.AppCompat"/>
+        <activity
+            android:name=".LobbyActivity"
             android:parentActivityName=".MainActivity"
-            android:theme="@style/Theme.AppCompat" />
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
