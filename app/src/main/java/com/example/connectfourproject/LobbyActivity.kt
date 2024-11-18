@@ -1,24 +1,29 @@
 package com.example.connectfourproject
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import com.google.firebase.Firebase
-import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.firestore
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Button
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.material3.*
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
+
+data class Player(
+    val playerId: String = "",
+    val name: String = "",
+    var challenge: String = "",
+)
+
 
 class LobbyActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,126 +31,172 @@ class LobbyActivity : ComponentActivity() {
 
         val playerName = intent.getStringExtra("playerName")
 
-        playerName?.let {
-            savePlayerNameToFirebase(it)
+        if (playerName != null) {
+            savePlayer(playerName)
         }
 
         setContent{
-            LobbyScreen()
+            LobbyScreenFireBase()
         }
     }
+}
 
-    override fun onDestroy() {
-        super.onDestroy()
-        deleteAllPlayer()
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+fun LobbyScreen(playerNames: List<Player>) {
+    Box {
+        Image(
+            painter = painterResource(id = R.drawable.backmain),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = { TopBarBackButton() },
+        ) { innerPadding ->
+
+            Column(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+            ) {
+
+                playerNames.forEach { name ->
+                    ListItem(
+                        headlineContent = {
+                            Text(text = name.name)
+                        },
+                        supportingContent = {
+                            Text(text = name.playerId)
+                        },
+                        trailingContent = {
+                            Button(onClick = { /*TODO*/ }) {
+                                Text(text = "Invite")
+                            }
+                        }
+                    )
+                }
+            }
+
+        }
     }
 }
 
 
 @Composable
-fun LobbyScreen() {
-    val playerNames = remember { mutableStateOf<List<String>>(emptyList()) }
-    var playerNamesListener: ListenerRegistration? by remember { mutableStateOf(null) }
+fun LobbyScreenFireBase() {
+    val playerNames = remember { mutableStateOf<List<Player>>(emptyList()) }
 
     LaunchedEffect(Unit) {
-        playerNamesListener = listenForPlayerUpdates { names ->
-            playerNames.value = names
+        fetchPlayer { players ->
+            playerNames.value = players
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            playerNamesListener?.remove()
-        }
-    }
-
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        LazyColumn(modifier = Modifier.padding(innerPadding)) {
-            items(playerNames.value.size) { playerName ->
-
-                ListItem(
-                    headlineContent = {
-                        Text("Name: ${playerNames.value[playerName]}")
-                    },
-                    supportingContent =  {
-                        Text("Player ID: ${playerName + 1}")
-                    },
-                    trailingContent = {
-                        Button(onClick = {
-                            val player1 = playerNames.value[playerName]
-                            val player2 = playerNames.value[(playerName + 1) % playerNames.value.size]
-                        }) { }
-                    })
-            }
-        }
-    }
+    LobbyScreen(playerNames = playerNames.value)
 }
 
 
-fun savePlayerNameToFirebase(playerName: String) {
+fun savePlayer(playerName: String) {
     val db = Firebase.firestore
-    val playerData = hashMapOf("name" to playerName)
+    val randomID = "${playerName}-${(0..999999).random()}"
+    val playerData = hashMapOf(
+        "id" to randomID,
+        "name" to playerName
+    )
 
-    db.collection("Players")
-        .add(playerData)
-        .addOnSuccessListener { documentReference ->
-            println("Player added with UserNameID: &{documentReference.id}")
+    db.collection("Players").document(randomID)
+        .set(playerData)
+        .addOnSuccessListener {
+            println("Player added with UserNameID: &randomID")
         }
         .addOnFailureListener { e ->
             println("Error adding player: $e")
         }
 }
 
-fun listenForPlayerUpdates(onNamesUpdated: (List<String>) -> Unit): ListenerRegistration {
-    val dp = Firebase.firestore
-    return dp.collection("Players")
+fun fetchPlayer(onPlayerFetched: (List<Player>) -> Unit) {
+    val db = Firebase.firestore
+    db.collection("Players")
         .addSnapshotListener { snapshot, e ->
             if (e != null) {
-                println("Error listening for player updates: $e")
+                println("Error fetching player names: $e")
                 return@addSnapshotListener
             }
+            if (snapshot != null) {
+                val players = snapshot.documents.map { document ->
+                    val player = document.toObject(Player::class.java) ?: Player()
+                    player.copy(playerId = document.id)
+                }
+                onPlayerFetched(players)
 
-            val playerNames = snapshot?.documents?.mapNotNull { it.getString("name") } ?: emptyList()
-            onNamesUpdated(playerNames)
-        }
-}
-
-fun deleteAllPlayer() {
-    val db = Firebase.firestore
-
-    db.collection("Players")
-        .get()
-        .addOnSuccessListener { snapshot ->
-            for (document in snapshot.documents) {
-                document.reference.delete()
-                    .addOnSuccessListener {
-                        println("Player deleted successfully")
-                    }
-                    .addOnFailureListener { e ->
-                        println("Error deleting player: $e")
-                    }
             }
         }
-        .addOnFailureListener { e ->
-            println("Error getting players: $e")
-        }
 }
 
-fun createGameSession(player1: String, player2: String, onSessionCreated: (String) -> Unit) {
-    val db = Firebase.firestore
-    val gameData = hashMapOf(
-        "player1" to player1,
-        "player2" to player2,
-        "boardState" to Array(6) { Array(7) { 0 } },
-        "currentPlayer" to player1
+@Preview(showBackground = true)
+@Composable
+fun PreviewLobbyScreen() {
+    val mockPlayerNames = listOf(
+        Player(name = "Player 1", playerId = "3"),
+        Player(name = "Player 2", playerId = "2"),
+        Player(name = "Player 3", playerId = "1")
     )
 
-    db.collection("GameSessions")
-        .add(gameData)
-        .addOnSuccessListener { documentReference ->
-            onSessionCreated(documentReference.id)
-        }
-        .addOnFailureListener { e ->
-            println("Error creating game session: $e")
-        }
+    LobbyScreen(playerNames = mockPlayerNames)
 }
+/*
+@Composable
+fun MainScreen() {
+    val db = Firebase.firestore
+    val playerList = MutableStateFlow<List<Player>>(emptyList())
+
+    db.collection("players")
+        .addSnapshotListener{ value, error ->
+            if (error != null) {
+                return@addSnapshotListener
+            }
+            if (value != null) {
+                playerList.value = value.toObjects()
+            }
+        }
+
+    val players by playerList.asStateFlow().collectAsStateWithLifecycle()
+
+    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        LazyColumn(modifier = Modifier.padding(innerPadding)) {
+            items(players) { player ->
+
+                ListItem(
+                    headlineContent = {
+                        Text("Name: ${player.name}")
+                    },
+                    supportingContent = {
+                        Text("Score: ${player.score}")
+                    },
+                    trailingContent = {
+                        Button(onClick = {
+                            val query = db.collection("players").whereEqualTo("playerId", player.playerId)
+
+                            query.get().addOnSuccessListener { querySnapshot ->
+                                for (documentSnapshot in querySnapshot) {
+                                    documentSnapshot.reference.update("invitation", "Hello!")
+                                }}
+
+
+
+                        }) {
+                            Text("Invite")
+                        }
+                    }
+                )
+
+
+            }
+        }
+    }
+}
+  */
+

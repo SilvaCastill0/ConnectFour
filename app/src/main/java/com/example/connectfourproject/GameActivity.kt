@@ -62,7 +62,7 @@ fun GameScreen() {
 fun TopBarBackButton() {
     val context = LocalContext.current
 
-    androidx.compose.material3.TopAppBar(
+    TopAppBar(
         title = {
             Text(text = "Connect Four")
         },
@@ -71,11 +71,7 @@ fun TopBarBackButton() {
                 val intent = Intent(context, MainActivity::class.java)
                 (context as Activity).startActivity(intent)
             }) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back"
-
-                )
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
             }
         }
     )
