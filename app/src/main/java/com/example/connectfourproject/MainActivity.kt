@@ -37,9 +37,7 @@ class MainActivity : ComponentActivity() {
 
 
 @Composable
-fun MainMenu(
-    onNavigateToGame: (String) -> Unit,
-) {
+fun MainMenu(onNavigateToGame: (String) -> Unit, ) {
     var playerName = remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxWidth()) {

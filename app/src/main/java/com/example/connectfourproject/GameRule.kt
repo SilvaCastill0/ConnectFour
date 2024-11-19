@@ -96,36 +96,37 @@ fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlaye
 fun syncGameBoard(
     gameSessionId: String,
     gameBoard: MutableState<Array<Array<Int>>>,
-    currentPlayer: MutableState<Int>
+    currentPlayer: MutableState<Int>,
 ) {
     val db = Firebase.firestore
     db.collection("gameSessions").document(gameSessionId)
-        .addSnapshotListener{ snapshot, e ->
+        .addSnapshotListener { snapshot, e ->
             if (e != null) {
-                println("Error syncing game board: $e")
+                println("Listen failed: $e")
                 return@addSnapshotListener
             }
             if (snapshot != null && snapshot.exists()) {
-                val board = snapshot.get("board") as? List<List<Int>>
+                val board = snapshot.get("board") as? List<List<Long>>
                 val currentPlayerTurn = snapshot.getLong("currentPlayer")?.toInt()
 
                 if (board != null && currentPlayerTurn != null) {
-                    gameBoard.value = board.map { it.toTypedArray() }.toTypedArray()
+                    gameBoard.value =
+                        board.map { it.map { it.toInt() }.toTypedArray() }.toTypedArray()
                     currentPlayer.value = currentPlayerTurn
                 }
-                }
-
+            }
         }
 }
 
 fun updateGameBoard(
     gameSessionId: String,
     gameBoard: Array<Array<Int>>,
-    currentPlayer: Int) {
+    currentPlayer: Int
+) {
     val db = Firebase.firestore
     db.collection("gameSessions").document(gameSessionId)
-        .set(mapOf("board" to gameBoard.map { it.toList() }, "currentPlayer" to currentPlayer))
-        .addOnSuccessListener {
+        .update("board", gameBoard.map { it.toList() }, "currentPlayer", currentPlayer)
+        .addOnSuccessListener{
             println("Game board updated successfully")
         }
         .addOnFailureListener { e ->

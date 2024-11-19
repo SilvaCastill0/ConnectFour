@@ -20,11 +20,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 
 data class Player(
-    val playerId: String = "",
+    val id: String = "",
     val name: String = "",
     var challenge: String = "",
+    var gameSessionId: String = ""
 )
 
 
@@ -34,12 +36,41 @@ class LobbyActivity : ComponentActivity() {
 
         val playerName = intent.getStringExtra("playerName")
 
-        if (playerName != null) {
-            savePlayer(playerName, this)
-        }
+        playerName?.let { savePlayer(it, this) }
 
         setContent{
-            LobbyScreenFireBase()
+            LobbyScreenFireBase(context = this)
+        }
+    }
+}
+
+@Composable
+fun LobbyScreenFireBase(context: Context) {
+    val playerNames = remember { mutableStateOf<List<Player>>(emptyList()) }
+    val challengerId = remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        fetchPlayers(context, {playerNames.value = it}, { id -> challengerId.value = id})
+    }
+
+    LaunchedEffect(Unit) {
+        listenForChallenge(context) { id ->
+            challengerId.value = id
+        }
+    }
+
+    Box {
+        LobbyScreen(playerNames = playerNames.value, context = context)
+
+        challengerId.value?.let { id ->
+            ShowChallengeDialog(
+                challengerId = id,
+                onGameStart = {
+                    acceptChallenge(id, context)
+                    challengerId.value = null
+                },
+                onDismiss = { challengerId.value = null }
+            )
         }
     }
 }
@@ -47,156 +78,97 @@ class LobbyActivity : ComponentActivity() {
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun LobbyScreen(playerNames: List<Player>) {
-    Box {
-        Image(
-            painter = painterResource(id = R.drawable.backmain),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = { TopBarBackButton() },
-        ) { innerPadding ->
-
-            Column(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
-            ) {
-
-                playerNames.forEach { name ->
-                    ListItem(
-                        headlineContent = {
-                            Text(text = name.name)
-                        },
-                        supportingContent = {
-                            Text(text = name.playerId)
-                        },
-                        trailingContent = {
+fun LobbyScreen(playerNames: List<Player>, context: Context ) {
+    Scaffold(
+        containerColor = Color.Transparent,
+        content = {
+            Column(modifier = Modifier.padding(16.dp)) {
+                if (playerNames.isEmpty()) {
+                    Text("No players available", color = Color.White)
+                } else {
+                    playerNames.forEach { player ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = player.name, color = Color.White)
                             Button(onClick = {
-                            sendChallenge(currentPlayerId = "YOUR_CURRENT_PLAYER_ID", challengePlayerId = name.playerId)
+                                sendChallenge(
+                                    currentPlayerId = getCurrentPlayer(context) ?: "",
+                                    challengePlayerId = player.id
+                                )
                             }) {
-                                Text(text = "Challenge")
+                                Text("Challenge")
                             }
                         }
-                    )
+                    }
                 }
             }
-
         }
-    }
+    )
 }
 
 
 @Composable
-fun LobbyScreenFireBase() {
-    val playerNames = remember { mutableStateOf<List<Player>>(emptyList()) }
-
-    LaunchedEffect(Unit) {
-        fetchPlayer(
-            onPlayerFetched = { fetchedPlayerNames ->
-                playerNames.value = fetchedPlayerNames
-            },
-            onChallengeReceived = { challengerId ->
-                ShowChallengeDialog(challengerId)
+fun ShowChallengeDialog(
+    challengerId: String,
+    onGameStart: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        title = { Text(text = "Challenge Received") },
+        text = { Text(text = "Player $challengerId has challenged you!") },
+        confirmButton = {
+            Button(onClick = { onGameStart() }) {
+                Text("Accept")
             }
-        )
-    }
-
-    LobbyScreen(playerNames = playerNames.value)
+        },
+        dismissButton = {
+            Button(onClick = { }) {
+                Text("Decline")
+            }
+        }
+    )
 }
-
 
 fun savePlayer(playerName: String, context: Context) {
     val db = Firebase.firestore
-    val randomID = "${playerName}-${(0..999999).random()}"
+    val playerId = "${playerName}-${(0..999999).random()}"
     val playerData = hashMapOf(
-        "id" to randomID,
-        "name" to playerName
+        "id" to playerId,
+        "name" to playerName,
+        "challenge" to "",
+        "gameSessionId" to ""
     )
 
-    db.collection("Players").document(randomID)
+    db.collection("Players").document(playerId)
         .set(playerData)
         .addOnSuccessListener {
-            println("Player added with UserNameID: &randomID")
-
-            savePlayerLocally(context, randomID)
+            println("Player added: $playerId")
+            savePlayerLocally(context, playerId)
         }
         .addOnFailureListener { e ->
             println("Error adding player: $e")
         }
 }
-
 fun savePlayerLocally(context: Context, playerId: String) {
-    val sharedPreferences = context.getSharedPreferences("MyPrefs", MODE_PRIVATE)
+    val sharedPreferences = context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
     sharedPreferences.edit().putString("playerId", playerId).apply()
 }
 
 fun getCurrentPlayer(context: Context): String? {
-    val sharedPreferences = context.getSharedPreferences("MyPrefs", MODE_PRIVATE)
+    val sharedPreferences = context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
     return sharedPreferences.getString("playerId", null)
-}
-
-@Composable
-fun ShowChallengeDialog(challengerId: String) {
-    var showDialog by remember { mutableStateOf(true) }
-
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(text = "Challenge Received") },
-            text = { Text(text = "Player $challengerId has challenged you!") },
-            confirmButton = {
-                Button(onClick = {
-                    onGameStart()
-                    showDialog = false
-                }) {
-                    Text("Accept")
-                }
-            },
-            dismissButton = {
-                Button(onClick = { showDialog = false }) {
-                    Text("Decline")
-                }
-            }
-        )
-    }
-}
-
-
-
-
-fun fetchPlayer(onPlayerFetched: (List<Player>) -> Unit, onChallengeReceived: (String) -> Unit) {
-    val db = Firebase.firestore
-    db.collection("Players")
-        .addSnapshotListener { snapshot, e ->
-            if (e != null) {
-                println("Error fetching player names: $e")
-                return@addSnapshotListener
-            }
-            if (snapshot != null) {
-                val players = snapshot.documents.map { document ->
-                    val player = document.toObject(Player::class.java) ?: Player()
-                    player.copy(playerId = document.id)
-                }
-                onPlayerFetched(players)
-
-                val currentPlayer = players.find { it.playerId == "YOUR_CURRENT_PLAYER_ID" }
-                if (currentPlayer?.challenge?.isNotEmpty() == true) {
-                    onChallengeReceived(currentPlayer.challenge)
-                }
-            }
-        }
 }
 
 fun sendChallenge(currentPlayerId: String, challengePlayerId: String) {
     val db = Firebase.firestore
-    val gameSessionId = "$currentPlayerId-$challengePlayerId"
-    db.collection("Players").document(currentPlayerId)
-        .update("challenge", challengePlayerId, "gameSessionId", gameSessionId)
-        .addOnSuccessListener {
+    db.collection("Players").document(challengePlayerId)
+        .update("challenge", currentPlayerId)
+        .addOnSuccessListener{
             println("Challenge sent to $challengePlayerId from $currentPlayerId successfully")
         }
         .addOnFailureListener { e ->
@@ -206,89 +178,83 @@ fun sendChallenge(currentPlayerId: String, challengePlayerId: String) {
 
 fun acceptChallenge(challengerId: String, context: Context) {
     val db = Firebase.firestore
-    val currentPlayerId = getCurrentPlayer(context)
-    if (currentPlayerId != null) {
-        db.collection("Players").document(currentPlayerId)
-            .get()
-            .addOnSuccessListener { document ->
-                val gameSessionId = document.getString("gameSessionId")
-                if (gameSessionId != null) {
-                    db.collection("Players").document(currentPlayerId)
-                        .update("challenge", "")
-                        .addOnSuccessListener {
-                            val intent = Intent(context, GameActivity::class.java)
-                            intent.putExtra("gameSessionId", gameSessionId)
-                            context.startActivity(intent)
-                        }
-                }
-            }
-            .addOnFailureListener { e ->
-                println("Error accepting challenge: $e")
-            }
-    }
-}
+    val currentPlayerId = getCurrentPlayer(context) ?: return
+    val gameSessionId = "$currentPlayerId-$challengerId"
 
-@Preview(showBackground = true)
-@Composable
-fun PreviewLobbyScreen() {
-    val mockPlayerNames = listOf(
-        Player(name = "Player 1", playerId = "3"),
-        Player(name = "Player 2", playerId = "2"),
-        Player(name = "Player 3", playerId = "1")
+    val sessionData = hashMapOf(
+        "board" to List(6) { List(7) { 0 } },
+        "currentPlayer" to 1
     )
 
-    LobbyScreen(playerNames = mockPlayerNames)
-}
-/*
-@Composable
-fun MainScreen() {
-    val db = Firebase.firestore
-    val playerList = MutableStateFlow<List<Player>>(emptyList())
+    db.collection("gameSessions").document(gameSessionId)
+        .set(sessionData)
+        .addOnSuccessListener {
+            db.collection("Players").document(currentPlayerId)
+                .update("challenge", "", "gameSessionId", gameSessionId)
+            db.collection("Players").document(challengerId)
+                .update("challenge", "", "gameSessionId", gameSessionId)
 
-    db.collection("players")
-        .addSnapshotListener{ value, error ->
-            if (error != null) {
+            val intent = Intent(context, GameActivity::class.java)
+            intent.putExtra("gameSessionId", gameSessionId)
+            context.startActivity(intent)
+        }
+        .addOnFailureListener { e ->
+            println("Error accepting challenge: $e")
+        }
+}
+
+fun listenForChallenge(
+    context: Context,
+    onChallengeReceived: (String) -> Unit
+) {
+    val db = Firebase.firestore
+    val currentPlayerId = getCurrentPlayer(context) ?: return
+
+    db.collection("Players").document(currentPlayerId)
+        .addSnapshotListener { snapshot, e ->
+            if (e != null) {
+                println("Error listening for challenges: $e")
                 return@addSnapshotListener
             }
-            if (value != null) {
-                playerList.value = value.toObjects()
+
+            if (snapshot != null && snapshot.exists()) {
+                val challenge = snapshot.getString("challenge") ?: ""
+                if (challenge.isNotEmpty()) {
+                    println("Challenge received from: $challenge")
+                    onChallengeReceived(challenge)
+                }
             }
         }
-
-    val players by playerList.asStateFlow().collectAsStateWithLifecycle()
-
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        LazyColumn(modifier = Modifier.padding(innerPadding)) {
-            items(players) { player ->
-
-                ListItem(
-                    headlineContent = {
-                        Text("Name: ${player.name}")
-                    },
-                    supportingContent = {
-                        Text("Score: ${player.score}")
-                    },
-                    trailingContent = {
-                        Button(onClick = {
-                            val query = db.collection("players").whereEqualTo("playerId", player.playerId)
-
-                            query.get().addOnSuccessListener { querySnapshot ->
-                                for (documentSnapshot in querySnapshot) {
-                                    documentSnapshot.reference.update("invitation", "Hello!")
-                                }}
-
-
-
-                        }) {
-                            Text("Invite")
-                        }
-                    }
-                )
-
-
-            }
-        }
-    }
 }
-  */
 
+
+fun fetchPlayers(
+    context: Context,
+    onPlayersFetched: (List<Player>) -> Unit,
+    onChallengeReceived: (String) -> Unit
+) {
+    val db = Firebase.firestore
+    val currentPlayerId = getCurrentPlayer(context) ?: return
+
+    db.collection("Players")
+        .addSnapshotListener { snapshot, e ->
+            if (e != null) {
+                println("Error fetching players: $e")
+                return@addSnapshotListener
+            }
+
+            if (snapshot != null) {
+                val players = snapshot.documents.mapNotNull {
+                    it.toObject(Player::class.java)
+                }
+                println("Fetched players: $players")
+                onPlayersFetched(players.filter { it.id != currentPlayerId })
+
+                val currentPlayer = players.find { it.id == currentPlayerId }
+                if (currentPlayer?.challenge?.isNotEmpty() == true) {
+                    println("Challenge received from: ${currentPlayer.challenge}")
+                    onChallengeReceived(currentPlayer.challenge)
+                }
+            }
+        }
+}
