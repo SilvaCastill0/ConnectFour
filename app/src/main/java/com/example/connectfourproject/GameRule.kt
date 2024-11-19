@@ -1,8 +1,10 @@
 package com.example.connectfourproject
 
 import androidx.compose.runtime.MutableState
+import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.firestore
 
 fun CheckHor(gameBoard: MutableState<Array<Array<Int>>>, row: Int, currentPlayer: MutableState<Int>): Boolean{
     var count = 0
@@ -89,4 +91,44 @@ fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlaye
         }
     }
     return null
+}
+
+fun syncGameBoard(
+    gameSessionId: String,
+    gameBoard: MutableState<Array<Array<Int>>>,
+    currentPlayer: MutableState<Int>
+) {
+    val db = Firebase.firestore
+    db.collection("gameSessions").document(gameSessionId)
+        .addSnapshotListener{ snapshot, e ->
+            if (e != null) {
+                println("Error syncing game board: $e")
+                return@addSnapshotListener
+            }
+            if (snapshot != null && snapshot.exists()) {
+                val board = snapshot.get("board") as? List<List<Int>>
+                val currentPlayerTurn = snapshot.getLong("currentPlayer")?.toInt()
+
+                if (board != null && currentPlayerTurn != null) {
+                    gameBoard.value = board.map { it.toTypedArray() }.toTypedArray()
+                    currentPlayer.value = currentPlayerTurn
+                }
+                }
+
+        }
+}
+
+fun updateGameBoard(
+    gameSessionId: String,
+    gameBoard: Array<Array<Int>>,
+    currentPlayer: Int) {
+    val db = Firebase.firestore
+    db.collection("gameSessions").document(gameSessionId)
+        .set(mapOf("board" to gameBoard.map { it.toList() }, "currentPlayer" to currentPlayer))
+        .addOnSuccessListener {
+            println("Game board updated successfully")
+        }
+        .addOnFailureListener { e ->
+            println("Error updating game board: $e")
+        }
 }

@@ -36,23 +36,24 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 
 class GameActivity : ComponentActivity() {
+    private lateinit var gameSessionId: String
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-
+        gameSessionId = intent.getStringExtra("gameSessionId") ?: ""
         setContent{
-            GameScreen()
+            GameScreen(gameSessionId)
         }
     }
 }
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun GameScreen() {
+fun GameScreen(gameSessionId: String) {
     Scaffold(
         topBar = { TopBarBackButton() },
     ) {
-        GameGrid()
+        GameGrid(gameSessionId)
     }
 }
 
@@ -78,10 +79,14 @@ fun TopBarBackButton() {
 }
 
 @Composable
-fun GameGrid() {
+fun GameGrid(gameSessionId: String) {
     val gameBoard = remember { mutableStateOf(Array(6) { Array(7) { 0 } }) }
     val currentPlayer = remember { mutableStateOf(1) }
     val winDetected = remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        syncGameBoard(gameSessionId, gameBoard, currentPlayer)
+    }
 
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -135,6 +140,7 @@ fun GameGrid() {
                                         winDetected.value = 2
                                     } else {
                                         currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
+                                        updateGameBoard(gameSessionId, gameBoard.value, currentPlayer.value)
                                     }
                                 }
                             },
@@ -214,5 +220,5 @@ fun PopUpDraw(onDismissRequest: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewGameGrid() {
-    GameScreen()
+    GameScreen(gameSessionId = "")
 }
