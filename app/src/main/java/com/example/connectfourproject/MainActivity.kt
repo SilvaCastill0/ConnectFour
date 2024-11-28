@@ -80,10 +80,8 @@ fun MainMenu(onNavigateToGame: (String) -> Unit, ) {
                 },
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .width(200.dp)
-                    .graphicsLayer { translationY = -100f }
             ) {
-                Text(text = "Join Lobby")
+                Text("Join Lobby")
             }
         }
     }
