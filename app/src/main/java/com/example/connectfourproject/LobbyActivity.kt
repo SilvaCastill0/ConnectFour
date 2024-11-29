@@ -2,12 +2,10 @@ package com.example.connectfourproject
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import com.google.firebase.Firebase
@@ -17,16 +15,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.appcompat.app.AlertDialog
 
 data class Player(
     val id: String = "",
     val name: String = "",
-    var challenge: String = "",
-    var gameSessionId: String = ""
+    var challenge: String? = null,
+    var gameSessionId: String? = null
 )
 
 
@@ -38,40 +35,23 @@ class LobbyActivity : ComponentActivity() {
 
         playerName?.let { savePlayer(it, this) }
 
-        setContent{
-            LobbyScreenFireBase(context = this)
+        setContent {
+            LobbyScreenFireBase()
         }
     }
 }
 
 @Composable
-fun LobbyScreenFireBase(context: Context) {
+fun LobbyScreenFireBase() {
+    val context = LocalContext.current
     val playerNames = remember { mutableStateOf<List<Player>>(emptyList()) }
-    val challengerId = remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        fetchPlayers(context, {playerNames.value = it}, { id -> challengerId.value = id})
-    }
-
-    LaunchedEffect(Unit) {
-        listenForChallenge(context) { id ->
-            challengerId.value = id
-        }
+        fetchPlayers(context) { playerNames.value = it }
     }
 
     Box {
         LobbyScreen(playerNames = playerNames.value, context = context)
-
-        challengerId.value?.let { id ->
-            ShowChallengeDialog(
-                challengerId = id,
-                onGameStart = {
-                    acceptChallenge(id, context)
-                    challengerId.value = null
-                },
-                onDismiss = { challengerId.value = null }
-            )
-        }
     }
 }
 
@@ -97,7 +77,8 @@ fun LobbyScreen(playerNames: List<Player>, context: Context ) {
                             Button(onClick = {
                                 sendChallenge(
                                     currentPlayerId = getCurrentPlayer(context) ?: "",
-                                    challengePlayerId = player.id
+                                    challengePlayerId = player.id,
+                                    context
                                 )
                             }) {
                                 Text("Challenge")
@@ -111,37 +92,15 @@ fun LobbyScreen(playerNames: List<Player>, context: Context ) {
 }
 
 
-@Composable
-fun ShowChallengeDialog(
-    challengerId: String,
-    onGameStart: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = { onDismiss() },
-        title = { Text(text = "Challenge Received") },
-        text = { Text(text = "Player $challengerId has challenged you!") },
-        confirmButton = {
-            Button(onClick = { onGameStart() }) {
-                Text("Accept")
-            }
-        },
-        dismissButton = {
-            Button(onClick = { }) {
-                Text("Decline")
-            }
-        }
-    )
-}
-
 fun savePlayer(playerName: String, context: Context) {
     val db = Firebase.firestore
-    val playerId = "${playerName}-${(0..999999).random()}"
+    val playerId = "$playerName-${(0..9999999).random()}"
+
     val playerData = hashMapOf(
         "id" to playerId,
         "name" to playerName,
-        "challenge" to "",
-        "gameSessionId" to ""
+        "challenge" to null,
+        "gameSessionId" to null
     )
 
     db.collection("Players").document(playerId)
@@ -149,11 +108,13 @@ fun savePlayer(playerName: String, context: Context) {
         .addOnSuccessListener {
             println("Player added: $playerId")
             savePlayerLocally(context, playerId)
+            listenForChallenges(playerId, context)
         }
         .addOnFailureListener { e ->
             println("Error adding player: $e")
         }
 }
+
 fun savePlayerLocally(context: Context, playerId: String) {
     val sharedPreferences = context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
     sharedPreferences.edit().putString("playerId", playerId).apply()
@@ -164,74 +125,151 @@ fun getCurrentPlayer(context: Context): String? {
     return sharedPreferences.getString("playerId", null)
 }
 
-fun sendChallenge(currentPlayerId: String, challengePlayerId: String) {
+
+
+fun listenForChallenges(playerId: String, context: Context) {
     val db = Firebase.firestore
-    db.collection("Players").document(challengePlayerId)
-        .update("challenge", currentPlayerId)
-        .addOnSuccessListener{
-            println("Challenge sent to $challengePlayerId from $currentPlayerId successfully")
-        }
-        .addOnFailureListener { e ->
-            println("Error sending challenge: $e")
-        }
-}
 
-fun acceptChallenge(challengerId: String, context: Context) {
-    val db = Firebase.firestore
-    val currentPlayerId = getCurrentPlayer(context) ?: return
-    val gameSessionId = "$currentPlayerId-$challengerId"
-
-    val sessionData = hashMapOf(
-        "board" to List(6) { List(7) { 0 } },
-        "currentPlayer" to 1
-    )
-
-    db.collection("gameSessions").document(gameSessionId)
-        .set(sessionData)
-        .addOnSuccessListener {
-            db.collection("Players").document(currentPlayerId)
-                .update("challenge", "", "gameSessionId", gameSessionId)
-            db.collection("Players").document(challengerId)
-                .update("challenge", "", "gameSessionId", gameSessionId)
-
-            val intent = Intent(context, GameActivity::class.java)
-            intent.putExtra("gameSessionId", gameSessionId)
-            context.startActivity(intent)
-        }
-        .addOnFailureListener { e ->
-            println("Error accepting challenge: $e")
-        }
-}
-
-fun listenForChallenge(
-    context: Context,
-    onChallengeReceived: (String) -> Unit
-) {
-    val db = Firebase.firestore
-    val currentPlayerId = getCurrentPlayer(context) ?: return
-
-    db.collection("Players").document(currentPlayerId)
+    db.collection("Challenges")
+        .whereEqualTo("challengedId", playerId)
+        .whereEqualTo("status", "pending")
         .addSnapshotListener { snapshot, e ->
             if (e != null) {
                 println("Error listening for challenges: $e")
                 return@addSnapshotListener
             }
 
+            if (snapshot != null && !snapshot.isEmpty) {
+                val challenge = snapshot.documents.first()
+                val challengerId = challenge.getString("challengerId") ?: return@addSnapshotListener
+                showChallengeDialog(challengerId, challenge.id, context)
+            }
+        }
+}
+
+fun sendChallenge(currentPlayerId: String, challengePlayerId: String, context: Context) {
+    val db = Firebase.firestore
+    val challengeData = hashMapOf(
+        "challengerId" to currentPlayerId,
+        "challengedId" to challengePlayerId,
+        "status" to "pending"
+    )
+
+    db.collection("Challenges")
+        .add(challengeData)
+        .addOnSuccessListener {
+            println("Challenge sent successfully!")
+
+            listenForChallengeUpdates(currentPlayerId, context)
+        }
+        .addOnFailureListener { e ->
+            println("Error sending challenge: $e")
+        }
+}
+
+fun listenForChallengeUpdates(challengeId: String, context: Context) {
+    val db = Firebase.firestore
+
+    db.collection("Challenges").document(challengeId)
+        .addSnapshotListener { snapshot, e ->
+            if (e != null) {
+                println("Error listening for challenge updates: $e")
+                return@addSnapshotListener
+            }
+
             if (snapshot != null && snapshot.exists()) {
-                val challenge = snapshot.getString("challenge") ?: ""
-                if (challenge.isNotEmpty()) {
-                    println("Challenge received from: $challenge")
-                    onChallengeReceived(challenge)
+                val status = snapshot.getString("status")
+                val gameSessionId = snapshot.getString("gameSessionId")
+
+                if (status == "accepted" && !gameSessionId.isNullOrEmpty()) {
+                    println("Challenge accepted! Game session ID: $gameSessionId")
+
+                    // Navigate to GameActivity
+                    val intent = Intent(context, GameActivity::class.java)
+                    intent.putExtra("gameSessionId", gameSessionId)
+                    context.startActivity(intent)
                 }
             }
         }
 }
 
+fun showChallengeDialog(challengerId: String, challengeId: String, context: Context) {
+    AlertDialog.Builder(context)
+        .setTitle("Challenge Received")
+        .setMessage("Player $challengerId has challenged you!")
+        .setPositiveButton("Accept") { _, _ ->
+            acceptChallenge(challengeId, context)
+        }
+        .setNegativeButton("Decline") { _, _ ->
+            declineChallenge(challengeId)
+        }
+        .show()
+}
+
+fun declineChallenge(challengeId: String) {
+    val db = Firebase.firestore
+    db.collection("Challenges").document(challengeId)
+        .update("status", "declined")
+        .addOnSuccessListener {
+            println("Challenge declined.")
+        }
+        .addOnFailureListener { e ->
+            println("Error declining challenge: $e")
+        }
+}
+
+fun acceptChallenge(challengeId: String, context: Context) {
+    val db = Firebase.firestore
+    val gameSessionId = "game-${(0..999999).random()}"
+
+    val gameSessionData = hashMapOf(
+        "board" to List(6) { List(7) { 0 } },
+        "currentPlayer" to 1,
+        "status" to "active"
+    )
+
+    db.collection("Challenges").document(challengeId)
+        .update("status", "accepted", "gameSessionId", gameSessionId)
+        .addOnSuccessListener {
+            // Create the game session
+            db.collection("gameSessions").document(gameSessionId)
+                .set(gameSessionData)
+                .addOnSuccessListener {
+                    // Fetch the challenge to update player documents
+                    db.collection("Challenges").document(challengeId).get()
+                        .addOnSuccessListener { document ->
+                            val challengerId =
+                                document.getString("challengerId") ?: return@addOnSuccessListener
+                            val challengedId =
+                                document.getString("challengedId") ?: return@addOnSuccessListener
+
+                            // Update gameSessionId for both players
+                            db.collection("Players").document(challengerId)
+                                .update("gameSessionId", gameSessionId)
+                            db.collection("Players").document(challengedId)
+                                .update("gameSessionId", gameSessionId)
+
+                            // Navigate to GameActivity
+                            val intent = Intent(context, GameActivity::class.java)
+                            intent.putExtra("gameSessionId", gameSessionId)
+                            context.startActivity(intent)
+                        }
+                        .addOnFailureListener { e ->
+                            println("Error accepting challenge: $e")
+                        }
+                }
+                .addOnFailureListener { e ->
+                    println("Error accepting challenge: $e")
+                }
+        }
+        .addOnFailureListener { e ->
+            println("Error accepting challenge: $e")
+        }
+}
 
 fun fetchPlayers(
     context: Context,
-    onPlayersFetched: (List<Player>) -> Unit,
-    onChallengeReceived: (String) -> Unit
+    onPlayersFetched: (List<Player>) -> Unit
 ) {
     val db = Firebase.firestore
     val currentPlayerId = getCurrentPlayer(context) ?: return
@@ -249,12 +287,6 @@ fun fetchPlayers(
                 }
                 println("Fetched players: $players")
                 onPlayersFetched(players.filter { it.id != currentPlayerId })
-
-                val currentPlayer = players.find { it.id == currentPlayerId }
-                if (currentPlayer?.challenge?.isNotEmpty() == true) {
-                    println("Challenge received from: ${currentPlayer.challenge}")
-                    onChallengeReceived(currentPlayer.challenge)
-                }
             }
         }
 }

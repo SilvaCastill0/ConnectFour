@@ -31,8 +31,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.style.TextAlign
-import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.FirebaseFirestore
 
 
 class GameActivity : ComponentActivity() {
@@ -41,6 +39,11 @@ class GameActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         gameSessionId = intent.getStringExtra("gameSessionId") ?: ""
+        if(gameSessionId.isEmpty()) {
+            println("Invalid game session ID")
+            finish()
+        }
+
         setContent{
             GameScreen(gameSessionId)
         }
@@ -50,34 +53,53 @@ class GameActivity : ComponentActivity() {
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun GameScreen(gameSessionId: String) {
-    Scaffold(
-        topBar = { TopBarBackButton() },
-    ) {
-        GameGrid(gameSessionId)
+    val gameBoard = remember { mutableStateOf(List(6) { MutableList(7) { 0 } }) }
+    val currentPlayer = remember { mutableStateOf(1) }
+    val winDetected = remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        syncGameBoard(gameSessionId, gameBoard, currentPlayer)
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Game UI components
+        if (winDetected.value == 0) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(7),
+                contentPadding = PaddingValues(4.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(gameBoard.value.flatten().size) { index ->
+                    val row = index / 7
+                    val col = index % 7
+
+                    Button(
+                        onClick = {
+                            val updatedRow = dropPiece(gameBoard, col, currentPlayer)
+                            if (updatedRow != null) {
+                                if (WinCheck(gameBoard, updatedRow, col, currentPlayer)) {
+                                    winDetected.value = currentPlayer.value
+                                } else {
+                                    currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
+                                    updateGameBoard(gameSessionId, gameBoard.value, currentPlayer.value)
+                                }
+                            }
+                        },
+                        modifier = Modifier.padding(4.dp)
+                    ) {
+                        when (gameBoard.value[row][col]) {
+                            1 -> Text("R") // Red
+                            2 -> Text("Y") // Yellow
+                            else -> Text("")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TopBarBackButton() {
-    val context = LocalContext.current
-
-    TopAppBar(
-        title = {
-            Text(text = "Connect Four")
-        },
-        navigationIcon = {
-            IconButton(onClick = {
-                val intent = Intent(context, MainActivity::class.java)
-                (context as Activity).startActivity(intent)
-            }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-            }
-        }
-    )
-}
-
+/*
 @Composable
 fun GameGrid(gameSessionId: String) {
     val gameBoard = remember { mutableStateOf(Array(6) { Array(7) { 0 } }) }
@@ -173,6 +195,7 @@ fun GameGrid(gameSessionId: String) {
         }
     }
 }
+ */
 
 @Composable
 fun PopUpWinner(currentPlayer: MutableState<Int>, onDismissRequest: () -> Unit) {

@@ -6,7 +6,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 
-fun CheckHor(gameBoard: MutableState<Array<Array<Int>>>, row: Int, currentPlayer: MutableState<Int>): Boolean{
+fun CheckHor(gameBoard: MutableState<List<MutableList<Int>>>, row: Int, currentPlayer: MutableState<Int>): Boolean{
     var count = 0
     for (col in 0 until gameBoard.value[row].size) {
         if (gameBoard.value[row][col] == currentPlayer.value) {
@@ -19,9 +19,9 @@ fun CheckHor(gameBoard: MutableState<Array<Array<Int>>>, row: Int, currentPlayer
     return false
 }
 
-fun CheckVer(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer: MutableState<Int>): Boolean {
+fun CheckVer(gameBoard: MutableState<List<MutableList<Int>>>, col: Int, currentPlayer: MutableState<Int>): Boolean {
     var count = 0
-    for (row in 0 until gameBoard.value.size) {
+    for (row in gameBoard.value.indices) {
         if (gameBoard.value[row][col] == currentPlayer.value) {
             count++
             if (count == 4) return true
@@ -32,7 +32,7 @@ fun CheckVer(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer
     return false
 }
 
-fun CheckDiag(gameBoard: MutableState<Array<Array<Int>>>,row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
+fun CheckDiag(gameBoard: MutableState<List<MutableList<Int>>>, row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
     var count = 0
 
     // Check diagonal from top-left to bottom-right
@@ -40,7 +40,10 @@ fun CheckDiag(gameBoard: MutableState<Array<Array<Int>>>,row: Int, col: Int, cur
     for(i in -3..3) {
         val r = row + i
         val c = col + i
-        if (r in gameBoard.value.indices && c in gameBoard.value[row].indices && gameBoard.value[r][c] == currentPlayer.value) {
+        if (r in gameBoard.value.indices
+            && c in gameBoard.value[row].indices
+            && gameBoard.value[r][c] == currentPlayer.value
+            ) {
             count++
             if (count == 4) return true
         }else {
@@ -53,7 +56,10 @@ fun CheckDiag(gameBoard: MutableState<Array<Array<Int>>>,row: Int, col: Int, cur
     for(i in -3..3) {
         val r = row + i
         val c = col - i
-        if (r in gameBoard.value.indices && c in gameBoard.value[row].indices && gameBoard.value[r][c] == currentPlayer.value) {
+        if (r in gameBoard.value.indices
+            && c in gameBoard.value[0].indices
+            && gameBoard.value[r][c] == currentPlayer.value
+            ) {
             count++
             if (count == 4) return true
         }else {
@@ -63,7 +69,7 @@ fun CheckDiag(gameBoard: MutableState<Array<Array<Int>>>,row: Int, col: Int, cur
     return false
 }
 
-fun CheckDraw(gameBoard: MutableState<Array<Array<Int>>>): Boolean {
+fun CheckDraw(gameBoard: MutableState<List<MutableList<Int>>>): Boolean {
     for (row in gameBoard.value) {
         for (cell in row) {
             if (cell == 0) return false
@@ -73,7 +79,7 @@ fun CheckDraw(gameBoard: MutableState<Array<Array<Int>>>): Boolean {
 }
 
 
-fun WinCheck(gameBoard: MutableState<Array<Array<Int>>>, row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
+fun WinCheck(gameBoard: MutableState<List<MutableList<Int>>>, row: Int, col: Int, currentPlayer: MutableState<Int>): Boolean {
     return CheckHor(gameBoard, row, currentPlayer) ||
             CheckVer(gameBoard, col, currentPlayer) ||
             CheckDiag(gameBoard, row, col, currentPlayer)
@@ -81,10 +87,14 @@ fun WinCheck(gameBoard: MutableState<Array<Array<Int>>>, row: Int, col: Int, cur
 
 
 
-fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlayer: MutableState<Int>): Int? {
-    for (row in gameBoard.value.size - 1 downTo 0) {
+fun dropPiece(
+    gameBoard: MutableState<List<MutableList<Int>>>,
+    col: Int,
+    currentPlayer: MutableState<Int>
+): Int? {
+    for (row in gameBoard.value.indices.reversed()) {
         if (gameBoard.value[row][col] == 0) {
-            val updatedBoard = gameBoard.value.map { it.copyOf() }.toTypedArray()
+            val updatedBoard = gameBoard.value.toMutableList()
             updatedBoard[row][col] = currentPlayer.value
             gameBoard.value = updatedBoard
             return row
@@ -95,10 +105,11 @@ fun dropPiece(gameBoard: MutableState<Array<Array<Int>>>, col: Int, currentPlaye
 
 fun syncGameBoard(
     gameSessionId: String,
-    gameBoard: MutableState<Array<Array<Int>>>,
+    gameBoard: MutableState<List<MutableList<Int>>>,
     currentPlayer: MutableState<Int>,
 ) {
     val db = Firebase.firestore
+
     db.collection("gameSessions").document(gameSessionId)
         .addSnapshotListener { snapshot, e ->
             if (e != null) {
@@ -110,9 +121,10 @@ fun syncGameBoard(
                 val currentPlayerTurn = snapshot.getLong("currentPlayer")?.toInt()
 
                 if (board != null && currentPlayerTurn != null) {
-                    gameBoard.value =
-                        board.map { it.map { it.toInt() }.toTypedArray() }.toTypedArray()
+                    gameBoard.value = board.map { it.map { it.toInt() }.toMutableList() }
                     currentPlayer.value = currentPlayerTurn
+                } else {
+                    println("Board or currentPlayer is null")
                 }
             }
         }
@@ -120,12 +132,16 @@ fun syncGameBoard(
 
 fun updateGameBoard(
     gameSessionId: String,
-    gameBoard: Array<Array<Int>>,
+    gameBoard: List<List<Int>>,
     currentPlayer: Int
 ) {
     val db = Firebase.firestore
+
     db.collection("gameSessions").document(gameSessionId)
-        .update("board", gameBoard.map { it.toList() }, "currentPlayer", currentPlayer)
+        .update(
+            "board", gameBoard,
+            "currentPlayer", currentPlayer
+        )
         .addOnSuccessListener{
             println("Game board updated successfully")
         }
