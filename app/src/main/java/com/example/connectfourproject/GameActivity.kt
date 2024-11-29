@@ -1,37 +1,88 @@
 package com.example.connectfourproject
 
-import android.annotation.SuppressLint
-import android.app.Activity
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import android.content.Intent
+import androidx.activity.compose.setContent
+import androidx.compose.material3.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.text.style.TextAlign
+import com.google.firebase.FirebaseApp
 
+class GameActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val gameId = intent.getStringExtra("gameId") ?: ""
+
+        setContent {
+            GameScreen(gameId = gameId)
+        }
+    }
+}
+
+@Composable
+fun GameScreen(gameId: String) {
+    val model: GameModel = viewModel()
+    val game = model.gameMap.collectAsState().value
+
+    if (gameId in game) {
+        val currentGame = game[gameId]!!
+        GameBoard(game = currentGame) { row, col ->
+            model.makeMove(gameId, row, col)
+        }
+    } else {
+        Text("Game not found.")
+    }
+}
+
+@Composable
+fun GameBoard(game: Game, onCellClick: (Int, Int) -> Unit) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyVerticalGrid(columns = GridCells.Fixed(7)) {
+            items(game.gameBoard.flatten().size) { index ->
+                val row = index / 7
+                val col = index % 7
+                Button(
+                    onClick = { onCellClick(row, col) },
+                    modifier = Modifier.padding(4.dp)
+                ) {
+                    when (game.gameBoard[row][col]) {
+                        1 -> Text("R") // Red Player
+                        2 -> Text("Y") // Yellow Player
+                        else -> Text("")
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+/*
 
 class GameActivity : ComponentActivity() {
     private lateinit var gameSessionId: String
@@ -245,3 +296,5 @@ fun PopUpDraw(onDismissRequest: () -> Unit) {
 fun PreviewGameGrid() {
     GameScreen(gameSessionId = "")
 }
+
+ */

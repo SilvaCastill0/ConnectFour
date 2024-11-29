@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
+
         setContent{
             MainMenu { playerName ->
                 val intent = Intent(this, LobbyActivity::class.java)
@@ -37,8 +38,8 @@ class MainActivity : ComponentActivity() {
 
 
 @Composable
-fun MainMenu(onNavigateToGame: (String) -> Unit, ) {
-    var playerName = remember { mutableStateOf("") }
+fun MainMenu(onNavigateToLobby: (String) -> Unit, ) {
+    var playerName by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Image(
@@ -57,31 +58,23 @@ fun MainMenu(onNavigateToGame: (String) -> Unit, ) {
             text = "Connect Four",
             color = Color.White,
             fontSize = 45.sp,
-            modifier = Modifier
-                .padding(16.dp)
-                .align(Alignment.CenterHorizontally)
-                .graphicsLayer { translationY = -550f }
+            modifier = Modifier.align(Alignment.CenterHorizontally)
         )
         OutlinedTextField(
-            value = playerName.value,
-            onValueChange = { playerName.value = it },
+            value = playerName,
+            onValueChange = { playerName = it },
             label = { Text("Enter your Username") },
             textStyle = TextStyle(color = Color.White, fontWeight = FontWeight.Bold),
-            modifier = Modifier
-                .padding(16.dp)
-                .graphicsLayer { translationY = -250f }
+            modifier = Modifier.fillMaxWidth()
+                .padding(35.dp)
 
         )
             Button(
                 onClick = {
-                    if(playerName.value.isNotEmpty()) {
-                        onNavigateToGame(playerName.value)
-                    }
+                    if(playerName.isNotBlank()) { onNavigateToLobby(playerName) }
                 },
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .width(200.dp)
-                    .graphicsLayer { translationY = -100f }
             ) {
                 Text(text = "Join Lobby")
             }
@@ -95,7 +88,7 @@ fun MainMenu(onNavigateToGame: (String) -> Unit, ) {
 @Composable
 fun PreviewMainMenu() {
     MainMenu (
-        onNavigateToGame = { println("Navigate to Game") }
+        onNavigateToLobby = { println("Navigate to Game") }
     )
 }
 

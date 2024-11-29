@@ -1,32 +1,115 @@
 package com.example.connectfourproject
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
-import com.google.firebase.Firebase
-import com.google.firebase.firestore.firestore
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.unit.dp
-import androidx.appcompat.app.AlertDialog
-
-data class Player(
-    val id: String = "",
-    val name: String = "",
-    var challenge: String? = null,
-    var gameSessionId: String? = null
-)
 
 
+class LobbyActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val playerName = intent.getStringExtra("playerName")
+
+        setContent {
+            val model: GameModel = viewModel()
+
+            playerName?.let {
+                model.registerPlayer(it)
+            }
+
+            LobbyScreen(model = model)
+        }
+    }
+}
+
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+fun LobbyScreen(model: GameModel) {
+    val playersState = model.playerMap.collectAsState()
+    val players = playersState.value
+    val challengePopup = remember { mutableStateOf<Pair<String, String>?>(null) }
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        model.init()
+        model.listenForChallenges { challengeId, challengerId ->
+            challengePopup.value = Pair(challengeId, challengerId)
+
+        }
+    }
+
+    Scaffold {
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (players.isEmpty()) {
+                Text("No players available.")
+            } else {
+                players.entries.forEach { (id, player) ->
+                    PlayerListItem(playerName = player.name) {
+                        model.createChallenge(id)
+                    }
+                }
+            }
+
+            challengePopup.value?.let { (challengeId, challengerId) ->
+                AlertDialog(
+                    onDismissRequest = { challengePopup.value = null },
+                    title = { Text("Challenge Received") },
+                    text = { Text("Player $challengerId has challenged you!") },
+                    confirmButton = {
+                        Button(onClick = {
+                            model.acceptChallenge(challengeId, context)
+                            challengePopup.value = null
+                        }) {
+                            Text("Accept")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = {
+                            model.declineChallenge(challengeId)
+                            challengePopup.value = null
+                        }) {
+                            Text("Decline")
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PlayerListItem(playerName: String, onChallengeClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(playerName)
+        Button(onClick = onChallengeClick) {
+            Text("Challenge")
+        }
+    }
+}
+
+
+
+/*
 class LobbyActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -290,3 +373,5 @@ fun fetchPlayers(
             }
         }
 }
+
+ */

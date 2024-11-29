@@ -50,6 +50,7 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
 
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.0")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

@@ -6,6 +6,8 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 
+
+/*
 fun CheckHor(gameBoard: MutableState<List<MutableList<Int>>>, row: Int, currentPlayer: MutableState<Int>): Boolean{
     var count = 0
     for (col in 0 until gameBoard.value[row].size) {
@@ -149,3 +151,5 @@ fun updateGameBoard(
             println("Error updating game board: $e")
         }
 }
+
+ */
