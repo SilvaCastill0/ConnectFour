@@ -1,22 +1,38 @@
 package com.example.connectfourproject
 
-import android.content.Context
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextAlign
+import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
-
 
 
 class GameActivity : ComponentActivity() {
@@ -24,133 +40,185 @@ class GameActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-
         gameSessionId = intent.getStringExtra("gameSessionId") ?: ""
-        setContent {
-            GameScreen(gameSessionId, this)
+        setContent{
+            GameScreen(gameSessionId)
+        }
+    }
+}
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+fun GameScreen(gameSessionId: String) {
+    Scaffold(
+        topBar = { TopBarBackButton() },
+    ) {
+        GameGrid(gameSessionId)
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TopBarBackButton() {
+    val context = LocalContext.current
+
+    TopAppBar(
+        title = {
+            Text(text = "Connect Four")
+        },
+        navigationIcon = {
+            IconButton(onClick = {
+                val intent = Intent(context, MainActivity::class.java)
+                (context as Activity).startActivity(intent)
+            }) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+        }
+    )
+}
+
+@Composable
+fun GameGrid(gameSessionId: String) {
+    val gameBoard = remember { mutableStateOf(Array(6) { Array(7) { 0 } }) }
+    val currentPlayer = remember { mutableStateOf(1) }
+    val winDetected = remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        syncGameBoard(gameSessionId, gameBoard, currentPlayer)
+    }
+
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.backmain),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        if (winDetected.value == 0) {
+        Text(
+            text = "Player ${currentPlayer.value}'s turn",
+            color = if (currentPlayer.value == 1) Color.Red else Color.Yellow,
+            fontSize = 24.sp,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .graphicsLayer { translationY = 600f }
+                .padding(top = 16.dp)
+        )
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(7),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { translationY = 700f }
+                    .padding(vertical = 16.dp, horizontal = 8.dp),
+                contentPadding = PaddingValues(4.dp)
+            ) {
+                items(gameBoard.value.flatten().size) { index ->
+                    val row = index / 7
+                    val col = index % 7
+
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .padding(4.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (gameBoard.value[row][col] == 1) Color.Red
+                                else if (gameBoard.value[row][col] == 2) Color.Yellow
+                                else Color.Gray
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Button(
+                            onClick = {
+                                val row = dropPiece(gameBoard, col, currentPlayer)
+                                if (row != null) {
+                                    if (WinCheck(gameBoard, row, col, currentPlayer)) {
+                                        winDetected.value = 1
+                                    } else if(CheckDraw(gameBoard)) {
+                                        winDetected.value = 2
+                                    } else {
+                                        currentPlayer.value = if (currentPlayer.value == 1) 2 else 1
+                                        updateGameBoard(gameSessionId, gameBoard.value, currentPlayer.value)
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            when (gameBoard.value[row][col]) {
+                                1 -> Box(
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .background(Color.Red, shape = CircleShape)
+                                )
+
+                                2 -> Box(
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .background(Color.Yellow, shape = CircleShape)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else if (winDetected.value == 1) {
+            PopUpWinner(currentPlayer, onDismissRequest = { winDetected.value = 0 })
+        }
+        else if (winDetected.value == 2) {
+            PopUpDraw(onDismissRequest = { winDetected.value = 0 })
         }
     }
 }
 
 @Composable
-fun GameScreen(gameSessionId: String, context: Context) {
-    val db = FirebaseFirestore.getInstance()
-    val gameBoard = remember { mutableStateOf(Array(6) { Array(7) { 0 } }) }
-    val currentPlayer = remember { mutableStateOf("") }
-    val gameStatus = remember { mutableStateOf("active") }
-
-    LaunchedEffect(gameSessionId) {
-        db.collection("gameSessions").document(gameSessionId)
-            .addSnapshotListener { snapshot, e ->
-                if (snapshot != null && snapshot.exists()) {
-                    val board = snapshot.get("board") as? List<List<Long>>
-                    val currentTurn = snapshot.getString("currentPlayer")
-                    val status = snapshot.getString("status")
-
-                    if (board != null && currentTurn != null) {
-                        gameBoard.value = board.map { it.map { it.toInt() }.toTypedArray() }.toTypedArray()
-                        currentPlayer.value = currentTurn
-                    }
-                    if (status != null) {
-                        gameStatus.value = status
-                    }
-                }
-            }
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = if (currentPlayer.value == getCurrentPlayerId(context)) "Your Turn!" else "Opponent's Turn!",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LazyVerticalGrid(columns = GridCells.Fixed(7), modifier = Modifier.fillMaxSize()) {
-            items(gameBoard.value.flatten().size) { index ->
-                val row = index / 7
-                val col = index % 7
-
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .padding(4.dp)
-                        .background(
-                            when (gameBoard.value[row][col]) {
-                                1 -> Color.Red
-                                2 -> Color.Yellow
-                                else -> Color.Gray
-                            }
-                        )
-                ) {
-                    Button(
-                        onClick = {
-                            if (currentPlayer.value == getCurrentPlayerId(context)) {
-                                makeMove(row, col, gameSessionId, gameBoard, context)
-                            }
-                        },
-                        enabled = gameBoard.value[row][col] == 0,
-                        modifier = Modifier.fillMaxSize()
-                    ) {}
-                }
-            }
-        }
-
-        if (gameStatus.value == "draw") {
-            PopUpDraw { /* Navigate back or restart */ }
-        } else if (gameStatus.value == "win") {
-            PopUpWinner(winner = "Player ${if (currentPlayer.value == "player1Id") 1 else 2}") {
-                /* Navigate back or restart */
-            }
+fun PopUpWinner(currentPlayer: MutableState<Int>, onDismissRequest: () -> Unit) {
+    Dialog(onDismissRequest = { onDismissRequest() }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = "Player ${currentPlayer.value} wins!",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .wrapContentSize(Alignment.Center),
+                textAlign = TextAlign.Center
+            )
         }
     }
-}
-
-fun makeMove(row: Int, col: Int, gameSessionId: String, gameBoard: MutableState<Array<Array<Int>>>, context: Context) {
-    val db = FirebaseFirestore.getInstance()
-
-    val updatedBoard = gameBoard.value.map { it.copyOf() }.toTypedArray()
-    for (r in updatedBoard.size - 1 downTo 0) {
-        if (updatedBoard[r][col] == 0) {
-            updatedBoard[r][col] = if (getCurrentPlayerId(context) == "player1Id") 1 else 2
-            break
-        }
-    }
-
-    db.collection("gameSessions").document(gameSessionId)
-        .update(
-            "board", updatedBoard.map { it.toList() },
-            "currentPlayer", if (getCurrentPlayerId(context) == "player1Id") "player2Id" else "player1Id"
-        )
 }
 
 @Composable
 fun PopUpDraw(onDismissRequest: () -> Unit) {
-    Dialog(onDismissRequest = onDismissRequest) {
-        Card(modifier = Modifier.fillMaxWidth().height(200.dp).padding(16.dp)) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("It's a Draw!", style = MaterialTheme.typography.headlineMedium)
-                Button(onClick = { onDismissRequest() }) {
-                    Text("OK")
-                }
-            }
+    Dialog(onDismissRequest = { onDismissRequest() }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = "Draw!",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .wrapContentSize(Alignment.Center),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
+
+@Preview(showBackground = true)
 @Composable
-fun PopUpWinner(winner: String, onDismissRequest: () -> Unit) {
-    Dialog(onDismissRequest = onDismissRequest) {
-        Card(modifier = Modifier.fillMaxWidth().height(200.dp).padding(16.dp)) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("$winner Wins!", style = MaterialTheme.typography.headlineMedium)
-                Button(onClick = { onDismissRequest() }) {
-                    Text("OK")
-                }
-            }
-        }
-    }
+fun PreviewGameGrid() {
+    GameScreen(gameSessionId = "")
 }
-

@@ -49,7 +49,6 @@ dependencies {
 
 
     implementation(platform(libs.firebase.bom))
-    implementation("com.google.android.gms:play-services-location:21.3.0")
 
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation(libs.androidx.core.ktx)
