@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.connectfourproject"
-        minSdk = 24
+        minSdk = 28
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -36,22 +36,17 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
-        viewBinding = true
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3"
     }
 
 }
 
 dependencies {
 
+    implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("androidx.appcompat:appcompat:1.6.1")
 
-    implementation(platform(libs.firebase.bom))
-
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.0")
-    implementation("androidx.compose.ui:ui-tooling-preview")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -60,11 +55,11 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.material)
-    implementation(libs.androidx.activity)
+    implementation(libs.androidx.navigation.runtime.ktx)
+    implementation(libs.androidx.navigation.compose)
+    implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
-    implementation(libs.androidx.appcompat)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
