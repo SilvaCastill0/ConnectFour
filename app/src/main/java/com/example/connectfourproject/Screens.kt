@@ -3,6 +3,7 @@ package com.example.connectfourproject
 import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
@@ -22,7 +22,6 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 @Composable
@@ -45,8 +44,8 @@ fun ConnectFour() {
 @Composable
 fun NewPlayerScreen(navController: NavController, model: GameModel) {
     val sharedPreferences = LocalContext.current
-        .getSharedPreferences("ConnectFourPrefs", Context.MODE_PRIVATE)
-
+        .getSharedPreferences("ConnectFourPrefss", Context.MODE_PRIVATE)
+/*
     LaunchedEffect(Unit) {
         val storedPlayerId = sharedPreferences.getString("playerId", null)
         if (storedPlayerId != null) {
@@ -63,6 +62,15 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
                 .addOnFailureListener {
                     Log.e("Error", "Error getting player: $storedPlayerId")
                 }
+        }
+    }
+
+ */
+
+    LaunchedEffect(Unit) {
+        model.localPlayerId.value = sharedPreferences.getString("playerId", null)
+        if (model.localPlayerId.value != null) {
+            navController.navigate("lobby")
         }
     }
 
@@ -137,7 +145,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
 
 
     Scaffold(
-        topBar = { TopAppBar(title =  { Text("TicTacToe - $playerName")}) }
+        topBar = { TopAppBar(title =  { Text("Connect Four - $playerName")}) }
     ) { innerPadding ->
         LazyColumn(modifier = Modifier.padding(innerPadding)) {
             items(players.entries.toList()) { (documentId, player) ->
@@ -147,7 +155,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                             Text("Player Name: ${player.name}")
                         },
                         supportingContent = {
-                            Text("Status: ...")
+                            Text("User ID: $documentId")
                         },
                         trailingContent = {
                             var hasGame = false
@@ -203,18 +211,16 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
     val players by model.playerMap.asStateFlow().collectAsStateWithLifecycle()
     val games by model.gameMap.asStateFlow().collectAsStateWithLifecycle()
 
-    /*
     var playerName = "Unknown?"
     players[model.localPlayerId.value]?.let {
         playerName = it.name
     }
 
-     */
 
     if (gameId != null && games.containsKey(gameId)) {
         val game = games[gameId]!!
         Scaffold(
-            topBar = { TopAppBar(title =  { Text("Connect Four")}) }
+            topBar = { TopAppBar(title =  { Text("${players[game.player1Id]!!.name} vs ${players[game.player2Id]!!.name}")}) }
         ) { innerPadding ->
             Column(
                 verticalArrangement = Arrangement.Center,
@@ -247,13 +253,11 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                         val myTurn =
                             game.gameState == "player1_turn" && game.player1Id == model.localPlayerId.value || game.gameState == "player2_turn" && game.player2Id == model.localPlayerId.value
                         val turn = if (myTurn) "Your turn!" else "Wait for other player"
-                        Text(turn, style = MaterialTheme.typography.headlineMedium)
+                        Text(
+                            turn,
+                            style = MaterialTheme.typography.headlineMedium,
+                            )
                         Spacer(modifier = Modifier.padding(20.dp))
-
-                        Text("Player 1: ${players[game.player1Id]!!.name}")
-                        Text("Player 2: ${players[game.player2Id]!!.name}")
-                        Text("State: ${game.gameState}")
-                        Text("GameId: ${gameId}")
                     }
                 }
 
@@ -261,30 +265,38 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                 Spacer(modifier = Modifier.padding(20.dp))
 
                 for (i in 0  until rows) {
-                    Row {
+                    Row (
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
                         for (j in 0 until cols) {
                             Button(
                                 shape = CircleShape,
                                 modifier = Modifier
-                                    .size(45.dp)
-                                    .padding(2.dp),
+                                    .weight(1F)
+                                    .aspectRatio(1F)
+                                    .padding(1.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
                                 onClick = {
                                     model.checkGameState(gameId, i * cols + j)
-                                }
+                                },
+                                enabled = game.gameState != "player1_won" &&
+                                        game.gameState != "player2_won" &&
+                                        game.gameState != "draw"
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            when (game.gameBoard[i * cols + j]) {
-                                                1 -> Color.Red
-                                                2 -> Color.Yellow
-                                                else -> Color.LightGray
-                                            }
-                                        )
-                                        .clip(CircleShape)
-                                )
+                                when (game.gameBoard[i * cols + j]) {
+                                    1 -> Icon(
+                                        painter = painterResource(id = R.drawable.baseline_redcircle_24),
+                                        tint = Color.Unspecified,
+                                        contentDescription = "Player 1"
+                                    )
+                                    2 -> Icon(
+                                        painter = painterResource(id = R.drawable.baseline_yellowcircle_24),
+                                        tint = Color.Unspecified,
+                                        contentDescription = "Player 2"
+                                    )
+                                    else -> Text("")
+                                }
                             }
                         }
                     }
