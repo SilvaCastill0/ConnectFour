@@ -1,6 +1,7 @@
 package com.example.connectfourproject
 
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -45,8 +46,6 @@ class GameModel: ViewModel() {
     val gameMap = MutableStateFlow<Map<String, Game>>(emptyMap())
 
     fun initGame() {
-
-        // Listen for players
         db.collection("players")
             .addSnapshotListener { value, error ->
                 if (error != null) {
@@ -60,7 +59,6 @@ class GameModel: ViewModel() {
                 }
             }
 
-        // Listen for games
         db.collection("games")
             .addSnapshotListener { value, error ->
                 if (error != null) {
@@ -75,73 +73,112 @@ class GameModel: ViewModel() {
             }
     }
 
-    fun checkWinner(board: List<Int>): Int {
-        /*
-        // Check rows
-        for (i in 0..2) {
-            if (board[i * 3] != 0 && board[i * 3] == board[i * 3 + 1] && board[i * 3] == board[i * 3 + 2]) {
-                return board[i * 3]
+    fun checkHor(board: List<Int>, rows: Int, cols: Int): Boolean {
+        for (row in 0 until rows) {
+            for (col in 0..(cols - 4)) {
+                val index = row * cols + col
+                val value = board[index]
+                if (value != 0 &&
+                    value == board[index + 1] &&
+                    value == board[index + 2] &&
+                    value == board[index + 3]
+                    ) {
+                    return true
+                }
+
             }
         }
+        return false
+    }
 
-        // Check columns
-        for (i in 0..2) {
-            if (board[i] != 0 && board[i] == board[i + 3] && board[i] == board[i + 6]) {
-                return board[i]
+    fun checkVer(board: List<Int>, rows: Int, cols: Int): Boolean {
+        for (col in 0 until cols) {
+            for (row in 0..(rows - 4)) {
+                val index = row * cols + col
+                val value = board[index]
+                if (value != 0 &&
+                    value == board[index + cols] &&
+                    value == board[index + 2 * cols] &&
+                    value == board[index + 3 * cols]
+                ) {
+                    return true
+                }
             }
         }
+        return false
+    }
 
-        // Check diagonals
-        if (board[0] != 0 && board[0] == board[4] && board[0] == board[8]) {
-            return board[0]
+    fun checkDiagonalTLBR(board: List<Int>, rows: Int, cols: Int): Boolean {
+        for (row in 0..(rows - 4)) {
+            for (col in 0..(cols - 4)) {
+                val index = row * cols + col
+                val value = board[index]
+                if (value != 0 &&
+                    value == board[index + cols + 1] &&
+                    value == board[index + 2 * (cols + 1)] &&
+                    value == board[index + 3 * (cols + 1)]
+                ) {
+                    return true
+                }
+            }
         }
-        if (board[2] != 0 && board[2] == board[4] && board[2] == board[6]) {
-            return board[2]
+        return false
+    }
+
+    fun checkDiagonalTRBL(board: List<Int>, rows: Int, cols: Int): Boolean {
+        for (row in 0..(rows - 4)) {
+            for (col in 3 until cols) {
+                val index = row * cols + col
+                val value = board[index]
+                if (value != 0 &&
+                    value == board[index + cols - 1] &&
+                    value == board[index + 2 * (cols - 1)] &&
+                    value == board[index + 3 * (cols - 1)]
+                ) {
+                    return true
+                }
+            }
         }
+        return false
+    }
 
-        // Check draw
-        if (!board.contains(0)) { // Check if all cells are filled and no winner yet
-            return 3
+    fun checkWinner(board: List<Int>, rows: Int, cols: Int): Int {
+        return when {
+            checkHor(board, rows, cols) -> 1
+            checkVer(board, rows, cols) -> 1
+            checkDiagonalTLBR(board, rows, cols) -> 1
+            checkDiagonalTRBL(board, rows, cols) -> 1
+            else -> 0
         }
+    }
 
-        // No winner yet
-        return 0
-
-         */
-        return TODO("Provide the return value")
+    fun isDraw(board: List<Int>): Boolean {
+        return board.none { it == 0 }
     }
 
 
     fun checkGameState(gameId: String?, cell: Int) {
-
         if (gameId != null) {
             val game: Game? = gameMap.value[gameId]
             if (game != null) {
-
-                val myTurn = game.gameState == "player1_turn" && game.player1Id == localPlayerId.value || game.gameState == "player2_turn" && game.player2Id == localPlayerId.value
+                val myTurn = (game.gameState == "player1_turn" && game.player1Id == localPlayerId.value) ||
+                            (game.gameState == "player2_turn" && game.player2Id == localPlayerId.value)
                 if (!myTurn) return
 
-                val list: MutableList<Int> = game.gameBoard.toMutableList()
+                val list = game.gameBoard.toMutableList()
 
-                if (game.gameState == "player1_turn") {
-                    list[cell] = 1
+                if (list[cell] != 0) return
 
-                } else if (game.gameState == "player2_turn") {
-                    list[cell] = 2
-                }
-                var turn = ""
-                if (game.gameState == "player1_turn") {
-                    turn = "player2_turn"
-                } else {
-                    turn = "player1_turn"
-                }
+                list[cell] = if (game.gameState == "player1_turn") 1 else 2
 
-                val winner = checkWinner(list.toList())
+                var turn = if (game.gameState == "player1_turn") "player2_turn" else "player1_turn"
+
+                val winner = checkWinner(list, rows, cols)
                 if (winner == 1) {
                     turn = "player1_won"
                 } else if (winner == 2) {
                     turn = "player2_won"
-                } else if (winner == 3) {
+                } else if (isDraw(list)) {
                     turn = "draw"
                 }
 
@@ -150,6 +187,9 @@ class GameModel: ViewModel() {
                         "gameBoard", list,
                         "gameState", turn
                     )
+                    .addOnFailureListener{ error ->
+                        Log.e("Error", "Error updating game: ${error.message}")
+                    }
             }
         }
     }

@@ -2,6 +2,7 @@ package com.example.connectfourproject
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
@@ -43,18 +45,28 @@ fun ConnectFour() {
 @Composable
 fun NewPlayerScreen(navController: NavController, model: GameModel) {
     val sharedPreferences = LocalContext.current
-        .getSharedPreferences("TicTacToePrefs", Context.MODE_PRIVATE)
+        .getSharedPreferences("ConnectFourPrefs", Context.MODE_PRIVATE)
 
-    // Check for playerId in SharedPreferences
     LaunchedEffect(Unit) {
-        model.localPlayerId.value = sharedPreferences.getString("playerId", null)
-        if (model.localPlayerId.value != null) {
-            navController.navigate("lobby")
+        val storedPlayerId = sharedPreferences.getString("playerId", null)
+        if (storedPlayerId != null) {
+            model.db.collection("players").document(storedPlayerId).get()
+                .addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        model.localPlayerId.value = storedPlayerId
+                        navController.navigate("lobby")
+                    } else {
+                        sharedPreferences.edit().remove("playerId").apply()
+                        model.localPlayerId.value = null
+                    }
+                }
+                .addOnFailureListener {
+                    Log.e("Error", "Error getting player: $storedPlayerId")
+                }
         }
     }
 
     if (model.localPlayerId.value == null) {
-
         var playerName by remember { mutableStateOf("") }
 
         Column(
@@ -64,14 +76,14 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Welcome to Robins TicTacToe!")
+            Text("Connect Four")
 
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = playerName,
                 onValueChange = { playerName = it },
-                label = { Text("Enter your name") },
+                label = { Text("Enter your UserID") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -79,22 +91,17 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
 
             Button(
                 onClick = { if (playerName.isNotBlank()) {
-                    // Create new player in Firestore
                     val newPlayer = Player(name = playerName)
 
                     model.db.collection("players")
                         .add(newPlayer)
                         .addOnSuccessListener { documentRef ->
                             val newPlayerId = documentRef.id
-
-                            // Save playerId in SharedPreferences
                             sharedPreferences.edit().putString("playerId", newPlayerId).apply()
-
-                            // Update local variable and navigate to lobby
                             model.localPlayerId.value = newPlayerId
                             navController.navigate("lobby")
                         }.addOnFailureListener { error ->
-                            Log.e("RobinError", "Error creating player: ${error.message}")
+                            Log.e("Error", "Error creating player: ${error.message}")
                         }
                 } },
                 modifier = Modifier.fillMaxWidth()
@@ -103,7 +110,7 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
             }
         }
     } else {
-        Text("Laddar....")
+        Text("Loading....")
     }
 }
 
@@ -159,7 +166,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                                             }
                                             .addOnFailureListener {
                                                 Log.e(
-                                                    "RobinError",
+                                                    "Error",
                                                     "Error updating game: $gameId"
                                                 )
                                             }
@@ -196,15 +203,18 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
     val players by model.playerMap.asStateFlow().collectAsStateWithLifecycle()
     val games by model.gameMap.asStateFlow().collectAsStateWithLifecycle()
 
+    /*
     var playerName = "Unknown?"
     players[model.localPlayerId.value]?.let {
         playerName = it.name
     }
 
+     */
+
     if (gameId != null && games.containsKey(gameId)) {
         val game = games[gameId]!!
         Scaffold(
-            topBar = { TopAppBar(title =  { Text("TicTacToe - $playerName")}) }
+            topBar = { TopAppBar(title =  { Text("Connect Four")}) }
         ) { innerPadding ->
             Column(
                 verticalArrangement = Arrangement.Center,
@@ -250,34 +260,31 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
 
                 Spacer(modifier = Modifier.padding(20.dp))
 
-                for (i in 0 ..< rows) {
+                for (i in 0  until rows) {
                     Row {
-                        for (j in 0..< cols) {
+                        for (j in 0 until cols) {
                             Button(
                                 shape = CircleShape,
-                                modifier = Modifier.size(10.dp).padding(2.dp),
+                                modifier = Modifier
+                                    .size(45.dp)
+                                    .padding(2.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
                                 onClick = {
                                     model.checkGameState(gameId, i * cols + j)
                                 }
                             ) {
-                                if (game.gameBoard[i * cols + j] == 1) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.outline_cross_24),
-                                        tint = Color.Red,
-                                        contentDescription = "X",
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                } else if (game.gameBoard[i * cols + j] == 2) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.outline_circle_24),
-                                        tint = Color.Blue,
-                                        contentDescription = "O",
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                } else {
-                                    Text("")
-                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            when (game.gameBoard[i * cols + j]) {
+                                                1 -> Color.Red
+                                                2 -> Color.Yellow
+                                                else -> Color.LightGray
+                                            }
+                                        )
+                                        .clip(CircleShape)
+                                )
                             }
                         }
                     }
@@ -286,7 +293,7 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
         }
     } else {
         Log.e(
-            "RobinError",
+            "Error",
             "Error Game not found: $gameId"
         )
         navController.navigate("lobby")
