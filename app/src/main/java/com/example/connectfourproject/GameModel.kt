@@ -31,7 +31,7 @@ data class Player(
 
 data class Game(
     var gameBoard: List<Int> = List(rows * cols) { 0 },
-    var gameState: String = "invite", // Possible values: "invite", "player1_turn", "player2_turn" "player1_won", "player2_won", "draw"
+    var gameState: String = "invite",
     var player1Id: String = "",
     var player2Id: String = ""
 )
@@ -74,35 +74,33 @@ class GameModel: ViewModel() {
     }
 
     fun checkWinner(board: List<Int>): Int {
-// Check rows
         for (row in 0 until rows) {
-            for (col in 0..(cols - 4)) { // Only check up to the 4th last column
+            for (col in 0..(cols - 4)) {
                 val start = row * cols + col
                 if (board[start] != 0 &&
                     board[start] == board[start + 1] &&
                     board[start] == board[start + 2] &&
                     board[start] == board[start + 3]
                 ) {
-                    return board[start] // Return the winner (1 or 2)
+                    return board[start]
                 }
             }
         }
 
-        // Check columns
         for (col in 0 until cols) {
-            for (row in 0..(rows - 4)) { // Only check up to the 4th last row
+            for (row in 0..(rows - 4)) {
                 val start = row * cols + col
                 if (board[start] != 0 &&
                     board[start] == board[start + cols] &&
                     board[start] == board[start + 2 * cols] &&
                     board[start] == board[start + 3 * cols]
                 ) {
-                    return board[start] // Return the winner (1 or 2)
+                    return board[start]
                 }
             }
         }
 
-        // Check diagonals (top-left to bottom-right)
+
         for (row in 0..(rows - 4)) {
             for (col in 0..(cols - 4)) {
                 val start = row * cols + col
@@ -111,31 +109,30 @@ class GameModel: ViewModel() {
                     board[start] == board[start + 2 * (cols + 1)] &&
                     board[start] == board[start + 3 * (cols + 1)]
                 ) {
-                    return board[start] // Return the winner (1 or 2)
+                    return board[start]
                 }
             }
         }
 
-        // Check diagonals (top-right to bottom-left)
+
         for (row in 0..(rows - 4)) {
-            for (col in 3 until cols) { // Start from the 3rd column
+            for (col in 3 until cols) {
                 val start = row * cols + col
                 if (board[start] != 0 &&
                     board[start] == board[start + cols - 1] &&
                     board[start] == board[start + 2 * (cols - 1)] &&
                     board[start] == board[start + 3 * (cols - 1)]
                 ) {
-                    return board[start] // Return the winner (1 or 2)
+                    return board[start]
                 }
             }
         }
 
-        // Check draw
-        if (!board.contains(0)) { // All cells filled and no winner
+        if (!board.contains(0)) {
             return 3
         }
 
-        // No winner yet
+
         return 0
     }
 
@@ -150,16 +147,25 @@ class GameModel: ViewModel() {
 
                 val list: MutableList<Int> = game.gameBoard.toMutableList()
 
-                // Make the move
-                if (list[cell] == 0) { // Ensure the cell is empty
-                    if (game.gameState == "player1_turn") {
-                        list[cell] = 1
-                    } else if (game.gameState == "player2_turn") {
-                        list[cell] = 2
+                val col = cell % cols
+
+                var targetCell: Int? = null
+                for (row in (rows - 1) downTo 0) {
+                    val index = row * cols + col
+                    if (list[index] == 0) {
+                        targetCell = index
+                        break
                     }
                 }
 
-                    // Check for winner or draw
+                if (targetCell == null) return
+
+                if (game.gameState == "player1_turn") {
+                    list[targetCell] = 1
+                } else if (game.gameState == "player2_turn") {
+                    list[targetCell] = 2
+                }
+
                     val winner = checkWinner(list)
                     val newState = when (winner) {
                         1 -> "player1_won"
