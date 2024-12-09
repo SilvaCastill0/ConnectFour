@@ -53,7 +53,7 @@ fun ConnectFour() {
 @Composable
 fun NewPlayerScreen(navController: NavController, model: GameModel) {
     val sharedPreferences = LocalContext.current
-        .getSharedPreferences("test12", Context.MODE_PRIVATE)
+        .getSharedPreferences("film1", Context.MODE_PRIVATE)
 
     LaunchedEffect(Unit) {
         model.localPlayerId.value = sharedPreferences.getString("playerId", null)
@@ -145,10 +145,12 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
     val players by model.playerMap.asStateFlow().collectAsStateWithLifecycle()
     val games by model.gameMap.asStateFlow().collectAsStateWithLifecycle()
 
-    // States for dialogs
+    // State variables for dialogs
     var showChallengeDialog by remember { mutableStateOf(false) }
+    var showAcceptDialog by remember { mutableStateOf(false) }
     var challengePlayerName by remember { mutableStateOf("") }
     var challengePlayerId by remember { mutableStateOf<String?>(null) }
+    var acceptGameId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(games) {
         games.forEach { (gameId, game) ->
@@ -223,17 +225,11 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                                         && game.gameState == "invite"
                                     ) {
                                         Button(onClick = {
-                                            model.db.collection("games").document(gameId)
-                                                .update("gameState", "player1_turn")
-                                                .addOnSuccessListener {
-                                                    navController.navigate("game/$gameId")
-                                                }
-                                                .addOnFailureListener {
-                                                    Log.e("Error", "Error accepting invite: ${it.message}")
-                                                }
+                                            acceptGameId = gameId
+                                            showAcceptDialog = true
                                         }) {
                                             Text(
-                                                text = "Accept Challenge",
+                                                text = "Message...!",
                                                 color = Color.White
                                             )
                                         }
@@ -259,7 +255,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                 }
             }
 
-            // Challenge Dialog (For Challenger Only)
+            // Challenge Dialog
             if (showChallengeDialog && challengePlayerId != null) {
                 AlertDialog(
                     onDismissRequest = { showChallengeDialog = false },
@@ -299,9 +295,53 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                     }
                 )
             }
+
+            // Accept Invite Dialog
+            if (showAcceptDialog && acceptGameId != null) {
+                AlertDialog(
+                    onDismissRequest = { showAcceptDialog = false },
+                    title = {
+                        Text(text = "Game Invite")
+                    },
+                    text = {
+                        Text(text = "You have been challenged to a game...")
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            model.db.collection("games").document(acceptGameId!!)
+                                .update("gameState", "player1_turn")
+                                .addOnSuccessListener {
+                                    navController.navigate("game/$acceptGameId")
+                                }
+                                .addOnFailureListener {
+                                    Log.e("Error", "Error accepting invite: ${it.message}")
+                                }
+                            showAcceptDialog = false
+                        }) {
+                            Text("Accept")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = {
+                            model.db.collection("games").document(acceptGameId!!)
+                                .update("gameState", "declined")
+                                .addOnSuccessListener {
+                                    Log.d("Lobby", "Game invite declined")
+                                }
+                                .addOnFailureListener {
+                                    Log.e("Error", "Error declining invite: ${it.message}")
+                                }
+                            showAcceptDialog = false
+                        }) {
+                            Text("Decline")
+                        }
+                    }
+                )
+            }
         }
     }
 }
+
 
 
 
@@ -354,7 +394,7 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                             Text("Game over!",
                                 color = Color.White,
                                 style = MaterialTheme.typography.headlineMedium,
-                                fontSize = 30.sp)
+                                fontSize = 60.sp)
                             Spacer(modifier = Modifier.padding(20.dp))
 
                             if (game.gameState == "draw") {
@@ -365,7 +405,7 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                                 )
                             } else {
                                 Text(
-                                    text = "Player ${if (game.gameState == "player1_won") "1" else "2"} won!",
+                                    text = "${if (game.gameState == "player1_won") players[game.player1Id]!!.name else players[game.player2Id]!!.name} won!",
                                     color = Color.White,
                                     style = MaterialTheme.typography.headlineMedium
                                 )
@@ -447,12 +487,3 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
         navController.navigate("lobby")
     }
 }
-
-
-@Preview(showBackground = true)
-@Composable
-fun GameScreenPreview() {
-    GameScreen(rememberNavController(), GameModel(), null)
-}
-
-
