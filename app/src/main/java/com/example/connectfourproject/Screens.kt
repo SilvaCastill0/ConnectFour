@@ -30,6 +30,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun ConnectFour() {
@@ -51,7 +53,7 @@ fun ConnectFour() {
 @Composable
 fun NewPlayerScreen(navController: NavController, model: GameModel) {
     val sharedPreferences = LocalContext.current
-        .getSharedPreferences("test1", Context.MODE_PRIVATE)
+        .getSharedPreferences("test12", Context.MODE_PRIVATE)
 
     LaunchedEffect(Unit) {
         model.localPlayerId.value = sharedPreferences.getString("playerId", null)
@@ -143,13 +145,17 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
     val players by model.playerMap.asStateFlow().collectAsStateWithLifecycle()
     val games by model.gameMap.asStateFlow().collectAsStateWithLifecycle()
 
+    // States for dialogs
+    var showChallengeDialog by remember { mutableStateOf(false) }
+    var challengePlayerName by remember { mutableStateOf("") }
+    var challengePlayerId by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(games) {
         games.forEach { (gameId, game) ->
-            // TODO: Popup with accept invite?
             if ((game.player1Id == model.localPlayerId.value || game.player2Id == model.localPlayerId.value)
                 && (game.gameState == "player1_turn" || game.gameState == "player2_turn")
             ) {
-                navController.navigate("game/${gameId}")
+                navController.navigate("game/$gameId")
             }
         }
     }
@@ -159,17 +165,21 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
         playerName = it.name
     }
 
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Connect Four - $playerName",
-                    color = Color.White,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .wrapContentSize(align = Alignment.Center)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent)) }
+                title = {
+                    Text(
+                        "Connect Four - $playerName",
+                        color = Color.White,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .wrapContentSize(align = Alignment.Center)
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
+        }
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -186,74 +196,117 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                             headlineContent = {
                                 Text(
                                     text = "Player Name: ${player.name}",
-                                    color = Color.White)
+                                    color = Color.White
+                                )
                             },
                             supportingContent = {
-                                Text(text = "User ID: $documentId",
-                                    color = Color.White)
+                                Text(
+                                    text = "User ID: $documentId",
+                                    color = Color.White
+                                )
                             },
                             trailingContent = {
                                 var hasGame = false
                                 games.forEach { (gameId, game) ->
+                                    // If player1 is waiting for player2 to accept
                                     if (game.player1Id == model.localPlayerId.value
                                         && game.gameState == "invite"
                                     ) {
-                                        Text(text = "Waiting for accept...",
-                                            color = Color.White)
+                                        Text(
+                                            text = "Waiting for accept...",
+                                            color = Color.White
+                                        )
                                         hasGame = true
-                                    } else if (game.player2Id == model.localPlayerId.value
+                                    }
+                                    // If player2 has been invited by player1
+                                    else if (game.player2Id == model.localPlayerId.value
                                         && game.gameState == "invite"
                                     ) {
                                         Button(onClick = {
                                             model.db.collection("games").document(gameId)
                                                 .update("gameState", "player1_turn")
                                                 .addOnSuccessListener {
-                                                    navController.navigate("game/${gameId}")
+                                                    navController.navigate("game/$gameId")
                                                 }
                                                 .addOnFailureListener {
-                                                    Log.e(
-                                                        "Error",
-                                                        "Error updating game: $gameId"
-                                                    )
+                                                    Log.e("Error", "Error accepting invite: ${it.message}")
                                                 }
                                         }) {
                                             Text(
-                                                text = "Accept invite",
-                                                color = Color.White)
+                                                text = "Accept Challenge",
+                                                color = Color.White
+                                            )
                                         }
                                         hasGame = true
                                     }
                                 }
                                 if (!hasGame) {
                                     Button(onClick = {
-                                        model.db.collection("games")
-                                            .add(
-                                                Game(
-                                                    gameState = "invite",
-                                                    player1Id = model.localPlayerId.value!!,
-                                                    player2Id = documentId
-                                                )
-                                            )
-                                            .addOnSuccessListener { documentRef ->
-                                                // TODO: Navigate?
-                                            }
+                                        challengePlayerName = player.name
+                                        challengePlayerId = documentId
+                                        showChallengeDialog = true
                                     }) {
                                         Text(
                                             text = "Challenge",
-                                            color = Color.White)
+                                            color = Color.White
+                                        )
                                     }
                                 }
                             },
-                            colors = ListItemDefaults.colors(
-                                containerColor = Color.Transparent
-                            )
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                     }
                 }
             }
+
+            // Challenge Dialog (For Challenger Only)
+            if (showChallengeDialog && challengePlayerId != null) {
+                AlertDialog(
+                    onDismissRequest = { showChallengeDialog = false },
+                    title = {
+                        Text(text = "Challenge Player")
+                    },
+                    text = {
+                        Text(text = "Do you want to challenge $challengePlayerName?")
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            model.db.collection("games")
+                                .add(
+                                    Game(
+                                        gameState = "invite",
+                                        player1Id = model.localPlayerId.value!!,
+                                        player2Id = challengePlayerId!!
+                                    )
+                                )
+                                .addOnSuccessListener {
+                                    Log.d("Lobby", "Challenge sent to $challengePlayerId")
+                                }
+                                .addOnFailureListener {
+                                    Log.e("Error", "Error sending challenge")
+                                }
+                            showChallengeDialog = false
+                        }) {
+                            Text("Yes")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = {
+                            showChallengeDialog = false
+                        }) {
+                            Text("No")
+                        }
+                    }
+                )
+            }
         }
     }
 }
+
+
+
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -300,7 +353,8 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
 
                             Text("Game over!",
                                 color = Color.White,
-                                style = MaterialTheme.typography.headlineMedium)
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontSize = 30.sp)
                             Spacer(modifier = Modifier.padding(20.dp))
 
                             if (game.gameState == "draw") {
@@ -316,6 +370,8 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                                     style = MaterialTheme.typography.headlineMedium
                                 )
                             }
+                            Spacer(modifier = Modifier.padding(10.dp))
+
                             Button(onClick = {
                                 navController.navigate("lobby")
                             }) {
@@ -362,20 +418,20 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                                             game.gameState != "player2_won" &&
                                             game.gameState != "draw"
                                 ) {
-                                    when (game.gameBoard[i * cols + j]) {
-                                        1 -> Box(
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .background(Color.Red, shape = CircleShape)
-                                        )
-                                        2 -> Box(
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .background(Color.Yellow, shape = CircleShape)
-                                        )
-
-                                        else -> Text("")
-                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(8.dp)
+                                            .aspectRatio(1F)
+                                            .background(
+                                                color = when (game.gameBoard[i * cols + j]) {
+                                                    1 -> Color.Red
+                                                    2 -> Color.Yellow
+                                                    else -> Color.LightGray
+                                                },
+                                                shape = CircleShape
+                                            )
+                                    )
                                 }
                             }
                         }
@@ -393,6 +449,10 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
 }
 
 
-
+@Preview(showBackground = true)
+@Composable
+fun GameScreenPreview() {
+    GameScreen(rememberNavController(), GameModel(), null)
+}
 
 
