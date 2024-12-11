@@ -1,28 +1,22 @@
 package com.example.connectfourproject
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
-import androidx.compose.material3.AlertDialogDefaults.containerColor
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -35,16 +29,18 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun ConnectFour() {
+    // Initialize the navigation controller for screen transitions
     val navController = rememberNavController()
     val model = GameModel()
     model.initGame()
 
+    // Define navigation routes for different screens in the app
     NavHost(navController = navController, startDestination = "player") {
-        composable("player") { NewPlayerScreen(navController, model) }
-        composable("lobby") { LobbyScreen(navController, model) }
+        composable("player") { NewPlayerScreen(navController, model) } // Player registration screen
+        composable("lobby") { LobbyScreen(navController, model) } // Lobby screen
         composable("game/{gameId}") { backStackEntry ->
-            val gameId = backStackEntry.arguments?.getString("gameId")
-            GameScreen(navController, model, gameId)
+            val gameId = backStackEntry.arguments?.getString("gameId") // Extract game ID from the route
+            GameScreen(navController, model, gameId) // Game play screen
         }
     }
 }
@@ -52,9 +48,11 @@ fun ConnectFour() {
 
 @Composable
 fun NewPlayerScreen(navController: NavController, model: GameModel) {
+    // Retrieve shared preferences for storing player ID locally
     val sharedPreferences = LocalContext.current
-        .getSharedPreferences("film1", Context.MODE_PRIVATE)
+        .getSharedPreferences("ConnectFour", Context.MODE_PRIVATE)
 
+    // Check if a player ID is already stored, and navigate to the lobby screen if so
     LaunchedEffect(Unit) {
         model.localPlayerId.value = sharedPreferences.getString("playerId", null)
         if (model.localPlayerId.value != null) {
@@ -63,8 +61,9 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
     }
 
     if (model.localPlayerId.value == null) {
-        var playerName by remember { mutableStateOf("") }
+        var playerName by remember { mutableStateOf("") } // State to hold the player's name
 
+        // Background image and input form for player name
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -86,6 +85,7 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Input field for entering a unique player name
                 OutlinedTextField(
                     value = playerName,
                     onValueChange = { playerName = it },
@@ -98,12 +98,14 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+
+                // Button to create a new player in the database
                 Button(
                     onClick = {
                         if (playerName.isNotBlank()) {
                             val newPlayer = Player(name = playerName)
 
-                            model.db.collection("players")
+                            model.db.collection("players") // Input the new player into the "players" collection in database
                                 .add(newPlayer)
                                 .addOnSuccessListener { documentRef ->
                                     val newPlayerId = documentRef.id
@@ -127,7 +129,8 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
                 }
             }
         }
-    } else {
+    } else { // If a player ID is found, show a loading screen
+
         Text(
             text = "Loading....",
             color = Color.White,
@@ -142,16 +145,18 @@ fun NewPlayerScreen(navController: NavController, model: GameModel) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LobbyScreen(navController: NavController, model: GameModel) {
+    // Observe player and game data from the GameModel
     val players by model.playerMap.asStateFlow().collectAsStateWithLifecycle()
     val games by model.gameMap.asStateFlow().collectAsStateWithLifecycle()
 
-    // State variables for dialogs
+    // Manage dialog visibility for challenges and game invitations
     var showChallengeDialog by remember { mutableStateOf(false) }
     var showAcceptDialog by remember { mutableStateOf(false) }
     var challengePlayerName by remember { mutableStateOf("") }
     var challengePlayerId by remember { mutableStateOf<String?>(null) }
     var acceptGameId by remember { mutableStateOf<String?>(null) }
 
+    // Automatically navigate to the game screen if a game involving the local player starts
     LaunchedEffect(games) {
         games.forEach { (gameId, game) ->
             if ((game.player1Id == model.localPlayerId.value || game.player2Id == model.localPlayerId.value)
@@ -162,11 +167,13 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
         }
     }
 
+    // Retrieve the local player's name from the players map
     var playerName = "Unknown?"
     players[model.localPlayerId.value]?.let {
         playerName = it.name
     }
 
+    // Display the lobby interface
     Scaffold(
         topBar = {
             TopAppBar(
@@ -179,11 +186,12 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                             .wrapContentSize(align = Alignment.Center)
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent) // Set the background color to transparent to see background image
             )
         }
     ) { innerPadding ->
         Box(
+            // Create a Box with a background image
             modifier = Modifier
                 .fillMaxSize()
                 .paint(
@@ -191,6 +199,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                     contentScale = ContentScale.FillBounds
                 )
         ) {
+            // Display a list of players and options to challenge them
             LazyColumn(modifier = Modifier.padding(innerPadding)) {
                 items(players.entries.toList()) { (documentId, player) ->
                     if (documentId != model.localPlayerId.value) {
@@ -249,7 +258,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                                     }
                                 }
                             },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent) // Set the background color to transparent to see background image
                         )
                     }
                 }
@@ -267,7 +276,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                     },
                     confirmButton = {
                         Button(onClick = {
-                            model.db.collection("games")
+                            model.db.collection("games") // Add a new game to the database
                                 .add(
                                     Game(
                                         gameState = "invite",
@@ -308,7 +317,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                     },
                     confirmButton = {
                         Button(onClick = {
-                            model.db.collection("games").document(acceptGameId!!)
+                            model.db.collection("games").document(acceptGameId!!) // Update the game in the database
                                 .update("gameState", "player1_turn")
                                 .addOnSuccessListener {
                                     navController.navigate("game/$acceptGameId")
@@ -323,7 +332,7 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                     },
                     dismissButton = {
                         Button(onClick = {
-                            model.db.collection("games").document(acceptGameId!!)
+                            model.db.collection("games").document(acceptGameId!!) // Update the game in the database
                                 .update("gameState", "declined")
                                 .addOnSuccessListener {
                                     Log.d("Lobby", "Game invite declined")
@@ -351,30 +360,35 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameScreen(navController: NavController, model: GameModel, gameId: String?) {
+    // Observe player and game data from the GameModel
     val players by model.playerMap.asStateFlow().collectAsStateWithLifecycle()
     val games by model.gameMap.asStateFlow().collectAsStateWithLifecycle()
 
+    // Retrieve the local player's name from the players map
     var playerName = "Unknown?"
     players[model.localPlayerId.value]?.let {
         playerName = it.name
     }
 
-
+    // Ensure that the game ID is valid and exists in the games map
     if (gameId != null && games.containsKey(gameId)) {
-        val game = games[gameId]!!
+        val game = games[gameId]!! // Retrieve the game object
+
+        // Scaffold for the Game Screen UI
         Scaffold(
             topBar = {
+                // Display the game title with the player names
                 TopAppBar(
                     title = { Text("${players[game.player1Id]!!.name} vs ${players[game.player2Id]!!.name}",
                         color = Color.White,
                         modifier = Modifier
                             .fillMaxSize()
                             .wrapContentSize(align = Alignment.Center)) },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent) // Set the background color to transparent to see background image
                 )
             }
         ) { innerPadding ->
+            // Background image for the game screen
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -383,14 +397,18 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                         contentScale = ContentScale.FillBounds
                     )
             ) {
+                // Centered content for the game states and board
                 Column(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(innerPadding).fillMaxWidth()
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .fillMaxWidth()
                 ) {
+                    // Handle different game states: game over, draw, etc
                     when (game.gameState) {
                         "player1_won", "player2_won", "draw" -> {
-
+                            // Display game result
                             Text("Game over!",
                                 color = Color.White,
                                 style = MaterialTheme.typography.headlineMedium,
@@ -405,13 +423,14 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                                 )
                             } else {
                                 Text(
-                                    text = "${if (game.gameState == "player1_won") players[game.player1Id]!!.name else players[game.player2Id]!!.name} won!",
+                                    text = "${if (game.gameState == "player1_won") players[game.player1Id]!!.name else players[game.player2Id]!!.name} won!", // Display the winner
                                     color = Color.White,
                                     style = MaterialTheme.typography.headlineMedium
                                 )
                             }
                             Spacer(modifier = Modifier.padding(10.dp))
 
+                            // Button to return to the lobby
                             Button(onClick = {
                                 navController.navigate("lobby")
                             }) {
@@ -422,9 +441,11 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                         }
 
                         else -> {
-
+                            // Display the current player's turn
                             val myTurn =
-                                game.gameState == "player1_turn" && game.player1Id == model.localPlayerId.value || game.gameState == "player2_turn" && game.player2Id == model.localPlayerId.value
+                                game.gameState == "player1_turn" && game.player1Id == model.localPlayerId.value ||
+                                        game.gameState == "player2_turn" && game.player2Id == model.localPlayerId.value
+
                             val turn = if (myTurn) "Your turn!" else "Wait for other player"
                             Text(
                                 turn,
@@ -438,12 +459,15 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
 
                     Spacer(modifier = Modifier.padding(20.dp))
 
+                    // Game board grid
                     for (i in 0 until rows) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
                             for (j in 0 until cols) {
+
+                                // Individual button for each cell on the board
                                 Button(
                                     shape = CircleShape,
                                     modifier = Modifier
@@ -452,12 +476,13 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                                         .padding(1.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
                                     onClick = {
-                                        model.checkGameState(gameId, i * cols + j)
+                                        model.checkGameState(gameId, i * cols + j) // Handle the move
                                     },
                                     enabled = game.gameState != "player1_won" &&
                                             game.gameState != "player2_won" &&
                                             game.gameState != "draw"
                                 ) {
+                                    //Cell content with color based on the game state
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -465,9 +490,9 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
                                             .aspectRatio(1F)
                                             .background(
                                                 color = when (game.gameBoard[i * cols + j]) {
-                                                    1 -> Color.Red
-                                                    2 -> Color.Yellow
-                                                    else -> Color.LightGray
+                                                    1 -> Color.Red //Player's 1 piece
+                                                    2 -> Color.Yellow //Player's 2 piece
+                                                    else -> Color.LightGray //Empty cell
                                                 },
                                                 shape = CircleShape
                                             )
@@ -480,6 +505,7 @@ fun GameScreen(navController: NavController, model: GameModel, gameId: String?) 
             }
         }
     }  else {
+        // Log and navigate to the lobby if the game is not found
         Log.e(
             "Error",
             "Error Game not found: $gameId"
